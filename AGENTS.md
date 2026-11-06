@@ -1,4 +1,15 @@
-- 这是一个技能仓库，所有的技能都放在 /skills 中，所管理的技能能够被主流的 agent 工具使用，如：cursor、opencode、codex等。
-- 禁止自动提交
-- 提交的时候只提交当前会话变动的文件，其他文件禁止提交
-- 提交信息必须符合 Commitizen（cz）/ Conventional Commits 标准
+# 仓库
+
+本仓库管理 agent 技能，全部放在 `skills/`，供 Cursor、OpenCode、Codex 等工具使用。
+
+# 技能
+
+- 目录名和 `name` 使用 `code-{名称}`，一律以 `code-` 开头。
+- 尽量通用：不写特定开发语言、框架、命令或工程目录。仓库已有约定就跟随；没有约定先问。
+- 共性写在通用技能里。专用技能先读通用技能，只写自己的流程，不重复共性。
+
+# 提交
+
+- 禁止自动提交。
+- 只提交当前会话改动的文件。
+- 提交信息遵循 Conventional Commits（Commitizen）。
