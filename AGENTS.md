@@ -13,3 +13,4 @@
 - 禁止自动提交。
 - 只提交当前会话改动的文件。
 - 提交信息遵循 Conventional Commits（Commitizen）。
+- 推送或访问远程因网络失败时，用 `http://127.0.0.1:7890` 代理重试（仅本次命令设置 `http_proxy` / `https_proxy`，不改 git 配置）。
