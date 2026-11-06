@@ -1,0 +1,4 @@
+- 这是一个技能仓库，所有的技能都放在 /skills 中，所管理的技能能够被主流的 agent 工具使用，如：cursor、opencode、codex等。
+- 禁止自动提交
+- 提交的时候只提交当前会话变动的文件，其他文件禁止提交
+- 提交信息必须符合 Commitizen（cz）/ Conventional Commits 标准
