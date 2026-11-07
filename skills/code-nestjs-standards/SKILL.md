@@ -2,19 +2,20 @@
 name: code-nestjs-standards
 description: >-
   NestJS + TypeScript + Node.js ≥20 backend coding standards for agents.
-  Reads code-architecture first for shared architecture/reuse rules; this skill
-  only adds NestJS stack conventions. Covers module layout, typing,
+  Reads code-architecture first for business-domain boundaries and reuse rules;
+  this skill only adds NestJS stack conventions. Covers feature-module layout by
+  business domain (not query/ingress-style technical facades), typing,
   controllers/providers boundaries, DTO/validation, errors, config, logging,
   testing, naming/DI, PNPM, and security basics. Use when writing or reviewing
   NestJS backend code, or when the user asks for NestJS standards, Nest 规范,
-  or Node/TS Nest coding conventions.
+  domain modules, or Node/TS Nest coding conventions.
 ---
 
 # NestJS 后端编码规范
 
 本技能约束 **NestJS + TypeScript + Node.js ≥20** 后端实现。写或改 NestJS 代码前读本文件并遵守。仓库已有更严约定时跟随仓库；本文件补齐缺口，不另造第二套风格。
 
-先读通用 `../code-architecture/SKILL.md`。复用、边界、分层、抽取时机等架构共性以它为准；本技能只写 NestJS 栈约定，不重复那些内容。
+先读通用 `../code-architecture/SKILL.md`。业务域定义、复用、边界、分层、抽取时机等架构共性以它为准；本技能只写 NestJS 栈约定，不重复那些内容。
 
 共性流程（需求目录、状态、发版）不在本技能内；有则先读对应 `code-spec-*` / `code-deploy`。
 
@@ -25,31 +26,57 @@ description: >-
 - 运行时：Node.js **20+**（不兼容、不迁就更旧 Node）
 - 包管理器：**PNPM 唯一**。安装、脚本、依赖增删一律用 `pnpm`；锁文件为 `pnpm-lock.yaml`。禁止使用 npm 或 yarn；禁止生成或提交 `package-lock.json`、`yarn.lock`。构建链其他部分跟随仓库；没有约定先问，但不得改用其他包管理器
 
-## 1. 项目与模块布局
+## 1. 项目与模块布局（业务域 Feature Module）
 
-按业务域拆 **feature module**，不按技术层堆全局大目录。
+Domain 判据见 `../code-architecture/SKILL.md` §1。Nest 侧落实为：
 
-推荐结构（示意，目录名跟随仓库习惯）：
+**一个业务域 = 一个（或一组紧密相关的）Nest feature module**，目录与模块名用业务语言。
+
+### 允许的顶层目录
 
 ```
 src/
   main.ts
   app.module.ts
-  {domain}/
+  {domain}/                      # 业务域，如 project / event / analysis / notification / audit
     {domain}.module.ts
-    {domain}.controller.ts
+    {domain}.controller.ts       # 本域对外 HTTP（含管理面读接口）；可有多个 controller
     {domain}.service.ts
     dto/
-    entities/ 或 schemas/   # 仅当本域需要
-    {domain}.constants.ts   # 按需
-  common/                   # 跨域可复用：过滤器、拦截器、管道、守卫、工具
-  config/                   # 配置模块与校验 schema
+    *.entity.ts                  # 仅本域表
+    adapters/                    # 可选：本域专用外部适配（CLI、SDK、网关客户端）
+      {adapter}/
+        {adapter}.module.ts      # 通常只被本域 module import，不在 AppModule 平铺
+  common/                        # 跨域横切：守卫、过滤器、管道、无业务语义工具
+  config/                        # 配置与校验
 ```
 
-- 一个 feature module 只暴露该域对外需要的 controller / provider / export。
+### Nest 落位规则
+
+| 东西 | 放哪 |
+| --- | --- |
+| 资源的 CRUD / 本域规则 / 本域实体 | `{domain}/` |
+| 管理面「查某资源列表/详情」 | **该资源所属域**的 controller（禁止单独 `query` module） |
+| Webhook / 入站适配 | **接收该业务事实的域**（如错误入站 → `event`），可 `ingress.controller.ts` 作文件名，但模块仍是业务域 |
+| 多步编排（收事件 → 分析 → 通知） | 主责用例所在域（如 `analysis` 内 pipeline）；不要顶层空壳 `pipeline` 域 |
+| OpenCode / Git / 第三方 LLM SDK | 使用方域下 `adapters/`（如 `analysis/opencode`），**不要**与业务域在 `AppModule` 平级并列成「技术域」 |
+| 审计、鉴权工具 | `audit` 域或 `common/`（无业务规则的工具才进 common） |
+
+### 禁止的顶层 module 名（典型坏味道）
+
+- `query` / `read` / `bff` — 技术读门面  
+- `ingress` / `egress`（单独成域时）— 传输角色；应并入业务域  
+- `pipeline` / `orchestrator`（无自有模型、只 forward）— 编排壳  
+- `opencode` / `git` / `llm`（与业务域平级）— 适配器误升格  
+
+发现上述目录时：合并回业务域或降为 `adapters/`，而不是继续加文件。
+
+### 其他约定
+
+- 一个 feature module 只 `exports` 外域需要的 provider；默认不导出。
 - 跨域复用放 `common/` 或独立 shared module；禁止把业务规则塞进 `common/`。
-- `AppModule` 只做组装：导入根配置、基础设施、各 feature module；不写业务逻辑。
-- 禁止循环依赖：需要双向协作时抽共享抽象、事件，或把共享数据访问下沉到独立模块。
+- `AppModule` 只组装：根配置、基础设施、**业务域** feature module；不写业务逻辑；不把适配器 module 与业务域平铺一长串（适配器由所属域 module import）。
+- 禁止循环依赖：优先下沉共享数据访问、事件或拆模块；`forwardRef` 仅权宜。不要用新建 `query` 模块来「躲开」环。
 
 ## 2. TypeScript 严格性
 
@@ -159,14 +186,16 @@ src/
 
 - 改代码前先读邻近模块的现有写法，保持一致。
 - 安装与脚本一律用 **pnpm**（如 `pnpm install`、`pnpm add`、`pnpm run …`）；只维护 `pnpm-lock.yaml`。
-- 新功能落在对应 feature module；边界清晰：controller 薄、service 厚、DTO 校验入参。
+- 新功能落在**对应业务域** feature module；边界清晰：controller 薄、service 厚、DTO 校验入参。
+- 新外部依赖客户端放使用方域的 `adapters/`，不新建顶层技术域。
 - 补齐类型、校验、错误映射；**核心流程/逻辑补单元测试**；配置走 Config 模块。
-- 因外部系统跳过单测时写明原因与依赖；不确定的目录、响应包装、鉴权方案：**先问**，不臆造全局约定。
+- 因外部系统跳过单测时写明原因与依赖；不确定的域边界、响应包装、鉴权方案：**先问**，不臆造全局约定。
 - 只改与任务相关的文件；保持变更可审阅。
 
 ### 不应做
 
 - 不用 npm / yarn 安装或跑脚本；不生成、不提交 `package-lock.json` 或 `yarn.lock`。
+- 不新建 `query` / 独立 `ingress` 域 / 空壳 `pipeline` 域 / 与业务平级的 SDK 域。
 - 不在业务 service 里直接操作 `request`/`response`，或绕过 Nest 管道/过滤器手写一套平行框架。
 - 不把 ORM 实体当 API 契约；不返回敏感字段。
 - 不关 TypeScript 严格项、不滥用 `any`、不吞异常后返回假成功。
@@ -180,8 +209,9 @@ src/
 
 写完 NestJS 改动后快速核对：
 
-1. 模块边界与命名是否符合本规范与仓库现状
-2. 入参是否有 DTO + 校验；出参是否无敏感字段
-3. 错误是否走统一异常/过滤器；状态码是否合理
-4. 配置是否经 Config；日志是否无密钥
-5. 核心流程/逻辑是否有单元测试；若跳过，是否因外部系统并已标明
+1. 顶层 module 是否皆为业务域；有无技术门面 / 适配器平级冒充域（对照 §1）
+2. 模块边界与命名是否符合本规范与仓库现状
+3. 入参是否有 DTO + 校验；出参是否无敏感字段
+4. 错误是否走统一异常/过滤器；状态码是否合理
+5. 配置是否经 Config；日志是否无密钥
+6. 核心流程/逻辑是否有单元测试；若跳过，是否因外部系统并已标明

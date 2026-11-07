@@ -2,13 +2,14 @@
 name: code-architecture
 description: >-
   Stack-agnostic architecture principles for frontend and backend agents:
-  reuse over copy-paste, prefer mature libraries over custom builds (with
-  requirement fit analysis and user choice), single responsibility, shared
-  extraction thresholds, dependency direction, cohesion/naming for shared
-  code, and agent do/don't. Read before stack-specific skills (e.g.
-  code-nestjs-standards). Use when designing modules, extracting helpers,
-  reviewing duplication, library selection, or when the user asks for
-  architecture, 架构, reuse, or layering guidance.
+  business-domain boundaries (not technical facades), reuse over copy-paste,
+  prefer mature libraries over custom builds (with requirement fit analysis and
+  user choice), single responsibility, shared extraction thresholds, dependency
+  direction, cohesion/naming for shared code, and agent do/don't. Read before
+  stack-specific skills (e.g. code-nestjs-standards). Use when designing
+  modules/domains, extracting helpers, reviewing duplication, library selection,
+  or when the user asks for architecture, 架构, domain, 业务域, reuse, or
+  layering guidance.
 ---
 
 # 架构共性
@@ -17,21 +18,65 @@ description: >-
 
 不规定语言、框架、命令或工程目录名。仓库已有布局与命名跟随仓库；没有约定先问。
 
-## 1. 单一职责与清晰边界
+## 1. 业务域（Domain）怎么定义
+
+**Domain = 稳定的业务能力边界**，用业务语言命名，拥有本域规则与（通常）本域数据。不是按技术动作、传输方式或「方便放 Controller」切出来的目录。
+
+### 是 Domain
+
+| 判据 | 说明 |
+| --- | --- |
+| 业务名词 | 如应用配置、错误事件、分析结论、出站通知、审计 |
+| 拥有变化轴 | 该目录下的规则/实体经常一起变，且可对外说清「负责什么」 |
+| 可独立理解 | 不依赖「查询」「入站」「流水线」这类技术角色才能命名 |
+
+### 不是 Domain（禁止升为顶层业务模块名）
+
+| 反例类型 | 例子 | 应落在哪里 |
+| --- | --- | --- |
+| 读模型 / 聚合查询门面 | `query`、`admin-read`、`bff` | 对应资源所属业务域的 Controller / 查询用例 |
+| 单一传输入口 | `ingress`、`webhook`、`http-in`（仅当只是适配） | 所属业务域（如事件域的入站入口） |
+| 纯编排壳 | 仅串联多域、自己无实体的顶层 `pipeline` / `orchestrator` | 主责用例所在域，或明确的 application 层（勿冒充业务域） |
+| 基础设施 / 第三方适配 | `opencode`、`git-client`、`llm-client`、`s3` | 使用方业务域下的 `adapters/`（或仓库约定的 infra 位置） |
+| 技术分层目录 | 全局 `controllers/`、`services/`、`repositories/` 大锅饭 | 按业务域切开后再在域内分层 |
+| 横切杂物 | 把鉴权、日志、加密业务规则塞进无主题 `utils` | `common/` 只放真正跨域、无业务语义的横切 |
+
+### 拆分自检（新建或评审目录时）
+
+1. 去掉技术后缀后，名字是否仍是业务语言？（`query` / `ingress` → 否）
+2. 本目录是否拥有规则或数据，还是只转发别的域？（只转发 → 不是独立域）
+3. 第三方 SDK / CLI / 网关客户端是否被建成了与业务域平级的顶层模块？（应降为适配器）
+4. 是否出现「为了 HTTP 方法或读/写方便」而拆的模块？（按资源与能力拆，不按 GET/POST 拆）
+
+### 与适配器、编排的关系
+
+```
+[传输适配: HTTP Webhook / Admin API]
+        ↓  属于某业务域的入口，不单独成域
+[业务域: 规则 + 用例 + 本域持久化]
+        ↓
+[基础设施适配: Agent CLI / Git / 邮件网关 …]  挂在使用它的业务域下
+```
+
+- **业务域**决定「做什么、规则是什么」。
+- **适配器**决定「怎么连外部世界」；可替换，不应成为产品词汇表里的一级名词。
+- **用例编排**可以留在主责域内；只有多域长流程且稳定复用时，才考虑独立 application 层，且**仍不要**起名为 `query` 这类技术名。
+
+## 2. 单一职责与清晰边界
 
 - 一个模块 / 文件 / 函数只做一件事，对外暴露窄接口。
-- 按业务能力或稳定变化轴拆分，不按「所有 utils 堆一处」或「所有类型堆一处」盲目分层。
+- 按**业务域**或稳定变化轴拆分，不按「所有 utils 堆一处」或「所有类型堆一处」盲目分层。
 - 边界写清：谁可以调用谁、什么数据进出、什么错误向上抛。跨边界不偷读内部细节。
 - UI、领域规则、基础设施（IO / 存储 / 第三方）分开；领域规则不绑死在传输或存储形状上。
 
-## 2. 复用优先于复制
+## 3. 复用优先于复制
 
 - 同一业务规则、校验、映射、格式化逻辑出现 **第二次** 时，抽到一处共享，改一处生效。
 - 禁止为图快复制粘贴大段实现后再各自微调；先找是否已有等价能力。
 - 共享代码只放真正跨调用方共用的部分；调用方特有的分支留在调用方。
 - 「几乎一样」但语义不同的逻辑：抽公共骨架或纯函数，差异用参数 / 策略表达，不要硬揉成难读的上帝函数。
 
-## 3. 成熟库优先于自研
+## 4. 成熟库优先于自研
 
 架构、需求方案与技术设计中，涉及**功能级代码实现**时：
 
@@ -44,7 +89,7 @@ description: >-
 - 明显无合适库、或需求极度定制时，仍要在方案里写明「已评估、结论为自研」及依据，而不是 silently 自写。
 - 方案设计阶段的文档落点与待确认流程见 `code-spec-design`；本文件只定架构共性。
 
-## 4. 何时抽取（避免过早抽象）
+## 5. 何时抽取（避免过早抽象）
 
 | 情况 | 做法 |
 | --- | --- |
@@ -56,14 +101,15 @@ description: >-
 - 不为「看起来专业」引入多余间接层、配置对象或插件体系。
 - 抽取后调用方应更短、更清楚；若反而更难读，收回抽象。
 
-## 5. 依赖方向与分层（高层）
+## 6. 依赖方向与分层（高层）
 
 - 依赖指向更稳定、更抽象的一方：业务编排依赖领域规则与端口，不反向依赖具体 UI 或驱动细节。
 - 内层（领域 / 用例）不依赖外层（界面、框架适配、具体客户端）的类型与生命周期。
-- 同层模块避免环状依赖；出现环则抽共享契约、下沉共用数据访问，或用事件 / 回调解耦。
+- **业务域 → 可依赖其他业务域的稳定导出与适配器；适配器不得反向依赖业务用例细节。**
+- 同层模块避免环状依赖；出现环则抽共享契约、下沉共用数据访问、用 `forwardRef` 仅作权宜、或用事件 / 回调解耦。优先消除环，而不是用技术门面模块（如 `query`）掩盖环。
 - 新代码接入时顺着已有依赖方向；不从基础设施层回调用业务私有实现。
 
-## 6. 共享代码的内聚与命名
+## 7. 共享代码的内聚与命名
 
 - 共享模块按**稳定主题**命名（做什么），不按临时需求名或调用方名单命名。
 - 内聚：放在一起的符号应经常一起变化；无关工具不要塞进同一个「杂物袋」。
@@ -71,16 +117,17 @@ description: >-
 - 命名在各调用方之间一致；改共享契约时同步所有调用点与测试。
 - 共享位置跟随仓库约定（如 `common/`、`shared/`、包内 `lib/`）；没有约定先问，不新造平行目录树。
 
-## 7. Agent 应做 / 不应做
+## 8. Agent 应做 / 不应做
 
 ### 应做
 
 - 改前先搜有无已有实现或近似逻辑；有则复用或扩展，不另起一份。
 - 功能实现先评估成熟库，对照本需求后让用户选择，再落方案。
 - 第二次出现同一规则时抽取；抽取后删掉重复副本。
-- 新模块职责单一、边界清楚；依赖方向与仓库现状一致。
+- 新模块按**业务域**命名与落位；职责单一、边界清楚；依赖方向与仓库现状一致。
+- 第三方客户端、CLI、网关 SDK 放在使用方域的适配位置，不新建与业务域平级的「技术域」。
 - 共享接口写清输入、输出与失败语义；补必要测试覆盖共享路径。
-- 不确定抽到哪里、如何命名：先问，不臆造全局结构。
+- 不确定域边界或命名：先问，不臆造全局结构。
 
 ### 不应做
 
@@ -89,14 +136,16 @@ description: >-
 - 不复制粘贴大段逻辑冒充交付速度。
 - 不过早抽象；不为单次使用预建框架式间接层。
 - 不把业务规则塞进无主题的 utils / helpers 垃圾桶。
+- 不新建 `query` / `ingress` / 纯 `pipeline` 等**技术门面**作为顶层业务域。
 - 不引入循环依赖，不用「先 any / 先 any 绕过」破坏边界。
 - 不在栈专用技能里重抄本文件；栈技能只写本栈差异。
 
 ## 完成时自检
 
-1. 是否存在可合并的重复逻辑（≥ 2 处）仍未抽取  
-2. 功能实现是否已评估成熟库并交用户选择（或已记录「评估后自研」）  
-3. 模块职责是否单一；边界是否可一句话说清  
-4. 依赖是否单向、无环；有无内层依赖外层细节  
-5. 共享代码命名与内聚是否清楚；导出是否过宽  
-6. 抽象是否让调用方更简单（否则收回）
+1. 顶层模块名是否都是业务语言；有无 `query` / 纯传输 / 纯适配器冒充域  
+2. 是否存在可合并的重复逻辑（≥ 2 处）仍未抽取  
+3. 功能实现是否已评估成熟库并交用户选择（或已记录「评估后自研」）  
+4. 模块职责是否单一；边界是否可一句话说清  
+5. 依赖是否单向、无环；有无内层依赖外层细节；适配器是否挂错层级  
+6. 共享代码命名与内聚是否清楚；导出是否过宽  
+7. 抽象是否让调用方更简单（否则收回）
