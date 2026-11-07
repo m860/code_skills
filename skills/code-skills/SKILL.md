@@ -3,9 +3,9 @@ name: code-skills
 description: >-
   Project-level agent skill lifecycle via the npm skills CLI (npx skills):
   add, list, find, check, update, remove. Prefer project scope, never hand-copy
-  into agent skill dirs or edit skills-lock.json by hand. Use when installing,
-  updating, removing, or listing skills, or when the user asks for 技能管理 /
-  npx skills / skills.sh.
+  into agent skill dirs or edit skills-lock.json by hand. For network failures,
+  read code-network first. Use when installing, updating, removing, or listing
+  skills, or when the user asks for 技能管理 / npx skills / skills.sh.
 ---
 
 # 项目技能管理
@@ -13,6 +13,8 @@ description: >-
 本技能约束**业务项目**里 agent 技能的安装与维护。增删改查一律走 npm 包 [`skills`](https://www.npmjs.com/package/skills) 的 CLI（`npx skills`），不手搓目录。
 
 本仓库内**编写**新技能（新建 `skills/code-*`、改 `SKILL.md`）不在本技能范围，遵循仓库 `AGENTS.md`。
+
+`npx skills` 因**网络**失败时，先读 `../code-network/SKILL.md`，代理重试以它为准，下文不重复。
 
 不规定业务项目的开发语言、框架或工程目录布局。跟随项目已有约定；没有约定先问。
 
@@ -51,12 +53,7 @@ npx skills list
 
 ## 4. 网络失败
 
-`npx skills` 因**网络**失败时：同一条命令、按端口顺序各重试一次，且**仅本次**设置 `http_proxy` / `https_proxy`（两者同值）：
-
-- 优先：`http://127.0.0.1:7890`
-- 候选：`http://127.0.0.1:7897`（上一端口仍因网络失败时再用）
-
-不改 npm / git 的持久代理配置。非网络错误不走代理重试。更细的 git 远程约定见 `code-git`。
+因网络失败时按 `code-network` 处理；非网络错误不走代理重试。
 
 ## 5. 不应做
 
@@ -69,4 +66,4 @@ npx skills list
 1. 是否只用 `npx skills` 完成变更，无手改安装目录或锁文件  
 2. 作用域是否为项目级（除非用户要求全局）  
 3. 安装源是否与项目锁文件 / 用户指定一致（`code-*` 默认 `m860/code_skills`）  
-4. 网络失败时是否按 7890 → 7897 做一次性代理重试  
+4. 网络失败时是否已按 `code-network` 处理  

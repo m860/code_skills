@@ -10,7 +10,9 @@
 
 # 提交
 
+细则见 `skills/code-git`；网络失败见 `skills/code-network`。摘要：
+
 - 禁止自动提交。
 - 只提交当前会话改动的文件。
 - 提交信息遵循 Conventional Commits（Commitizen）。
-- 推送或访问远程因网络失败时，用 `http://127.0.0.1:7890` 代理重试；仍失败再用候选端口 `7897`（仅本次命令设置 `http_proxy` / `https_proxy`，不改 git 配置）。
+- 推送或访问远程因网络失败时，按 `code-network` 用一次性 `http_proxy` / `https_proxy` 重试（不改 git 配置）。
