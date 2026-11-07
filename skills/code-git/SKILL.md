@@ -4,9 +4,9 @@ description: >-
   Git commit and remote-access constraints for agents: never auto-commit,
   stage only files changed in the current session, Conventional Commits
   (Commitizen) messages, and retry failed remote access via a one-shot
-  http://127.0.0.1:7890 proxy without changing git config. Use when
-  committing, pushing, fetching, or when the user asks for git / 提交 /
-  Conventional Commits guidance.
+  http://127.0.0.1:7890 proxy (candidate 7897) without changing git config.
+  Use when committing, pushing, fetching, or when the user asks for git /
+  提交 / Conventional Commits guidance.
 ---
 
 # Git 约束
@@ -50,10 +50,10 @@ description: >-
 
 推送、拉取、fetch 或其他访问远程因**网络**失败时：
 
-1. 用同一条命令重试一次。
-2. **仅本次命令**设置环境变量：
-   - `http_proxy=http://127.0.0.1:7890`
-   - `https_proxy=http://127.0.0.1:7890`
+1. 用同一条命令、按端口顺序各重试一次。
+2. **仅本次命令**设置环境变量（`http_proxy` 与 `https_proxy` 同值）：
+   - 优先：`http://127.0.0.1:7890`
+   - 候选：`http://127.0.0.1:7897`（上一端口仍因网络失败时再用）
 3. **不**修改 git 配置（不写 `http.proxy` / `https.proxy`，不改全局或仓库 `.gitconfig`）。
 4. 非网络原因（鉴权失败、冲突、拒绝推送等）不走代理重试；按失败原因处理或向用户说明。
 
@@ -62,4 +62,4 @@ description: >-
 1. 用户是否明确要求了提交；否则未执行 commit / push  
 2. 暂存文件是否仅含本会话改动  
 3. 提交信息是否符合 Conventional Commits  
-4. 远程网络失败时是否仅用一次性 `http_proxy` / `https_proxy` 重试，且未改 git 配置  
+4. 远程网络失败时是否按 7890 → 7897 做一次性代理重试，且未改 git 配置  
