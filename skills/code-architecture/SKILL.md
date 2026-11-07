@@ -2,11 +2,13 @@
 name: code-architecture
 description: >-
   Stack-agnostic architecture principles for frontend and backend agents:
-  reuse over copy-paste, single responsibility, shared extraction thresholds,
-  dependency direction, cohesion/naming for shared code, and agent do/don't.
-  Read before stack-specific skills (e.g. code-nestjs-standards). Use when
-  designing modules, extracting helpers, reviewing duplication, or when the
-  user asks for architecture, 架构, reuse, or layering guidance.
+  reuse over copy-paste, prefer mature libraries over custom builds (with
+  requirement fit analysis and user choice), single responsibility, shared
+  extraction thresholds, dependency direction, cohesion/naming for shared
+  code, and agent do/don't. Read before stack-specific skills (e.g.
+  code-nestjs-standards). Use when designing modules, extracting helpers,
+  reviewing duplication, library selection, or when the user asks for
+  architecture, 架构, reuse, or layering guidance.
 ---
 
 # 架构共性
@@ -29,7 +31,20 @@ description: >-
 - 共享代码只放真正跨调用方共用的部分；调用方特有的分支留在调用方。
 - 「几乎一样」但语义不同的逻辑：抽公共骨架或纯函数，差异用参数 / 策略表达，不要硬揉成难读的上帝函数。
 
-## 3. 何时抽取（避免过早抽象）
+## 3. 成熟库优先于自研
+
+架构、需求方案与技术设计中，涉及**功能级代码实现**时：
+
+1. **先搜**：仓库是否已有等价依赖或封装；有则优先复用，不平行引入第二套。
+2. **再评成熟库**：是否存在维护活跃、文档清晰、与当前栈兼容的成熟库能覆盖本需求（或大部分）。
+3. **对照本需求**：逐条对照范围、边界、性能/体积、许可证、与现有依赖冲突、接入成本；写清「能覆盖 / 缺口 / 风险」。
+4. **交给用户选**：至少给出可选路径（例如：采用库 A、采用库 B、薄封装自研、库 + 少量自研补缺口），附简要利弊与建议；**用户拍板前不定案、不擅自引入依赖**。
+
+- 琐碎到不构成「功能实现选型」的一行工具用法，不必走完整选型流程。
+- 明显无合适库、或需求极度定制时，仍要在方案里写明「已评估、结论为自研」及依据，而不是 silently 自写。
+- 方案设计阶段的文档落点与待确认流程见 `code-spec-design`；本文件只定架构共性。
+
+## 4. 何时抽取（避免过早抽象）
 
 | 情况 | 做法 |
 | --- | --- |
@@ -41,14 +56,14 @@ description: >-
 - 不为「看起来专业」引入多余间接层、配置对象或插件体系。
 - 抽取后调用方应更短、更清楚；若反而更难读，收回抽象。
 
-## 4. 依赖方向与分层（高层）
+## 5. 依赖方向与分层（高层）
 
 - 依赖指向更稳定、更抽象的一方：业务编排依赖领域规则与端口，不反向依赖具体 UI 或驱动细节。
 - 内层（领域 / 用例）不依赖外层（界面、框架适配、具体客户端）的类型与生命周期。
 - 同层模块避免环状依赖；出现环则抽共享契约、下沉共用数据访问，或用事件 / 回调解耦。
 - 新代码接入时顺着已有依赖方向；不从基础设施层回调用业务私有实现。
 
-## 5. 共享代码的内聚与命名
+## 6. 共享代码的内聚与命名
 
 - 共享模块按**稳定主题**命名（做什么），不按临时需求名或调用方名单命名。
 - 内聚：放在一起的符号应经常一起变化；无关工具不要塞进同一个「杂物袋」。
@@ -56,11 +71,12 @@ description: >-
 - 命名在各调用方之间一致；改共享契约时同步所有调用点与测试。
 - 共享位置跟随仓库约定（如 `common/`、`shared/`、包内 `lib/`）；没有约定先问，不新造平行目录树。
 
-## 6. Agent 应做 / 不应做
+## 7. Agent 应做 / 不应做
 
 ### 应做
 
 - 改前先搜有无已有实现或近似逻辑；有则复用或扩展，不另起一份。
+- 功能实现先评估成熟库，对照本需求后让用户选择，再落方案。
 - 第二次出现同一规则时抽取；抽取后删掉重复副本。
 - 新模块职责单一、边界清楚；依赖方向与仓库现状一致。
 - 共享接口写清输入、输出与失败语义；补必要测试覆盖共享路径。
@@ -68,6 +84,8 @@ description: >-
 
 ### 不应做
 
+- 不默认自研可复用能力而不评估成熟库。
+- 不未经用户选择就引入新依赖或定死库选型。
 - 不复制粘贴大段逻辑冒充交付速度。
 - 不过早抽象；不为单次使用预建框架式间接层。
 - 不把业务规则塞进无主题的 utils / helpers 垃圾桶。
@@ -77,7 +95,8 @@ description: >-
 ## 完成时自检
 
 1. 是否存在可合并的重复逻辑（≥ 2 处）仍未抽取  
-2. 模块职责是否单一；边界是否可一句话说清  
-3. 依赖是否单向、无环；有无内层依赖外层细节  
-4. 共享代码命名与内聚是否清楚；导出是否过宽  
-5. 抽象是否让调用方更简单（否则收回）
+2. 功能实现是否已评估成熟库并交用户选择（或已记录「评估后自研」）  
+3. 模块职责是否单一；边界是否可一句话说清  
+4. 依赖是否单向、无环；有无内层依赖外层细节  
+5. 共享代码命名与内聚是否清楚；导出是否过宽  
+6. 抽象是否让调用方更简单（否则收回）

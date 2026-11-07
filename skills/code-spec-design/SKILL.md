@@ -3,10 +3,11 @@ name: code-spec-design
 description: >-
   Designs one requirement at docs/features/{timestamp}-{title}/ with required
   SPEC.md and TECH.md, optional BRD.md, and a prototype only when the user
-  asks. Reads code-spec-common first for directories, status, SemVer, and
-  CHANGELOG. Stops at 方案设计完成. Use when the user asks for code-spec-design, spec-design,
-  requirements design, SPEC, PRD, TECH, 方案设计, 先设计后实现, or planning
-  before coding.
+  asks. Prefers mature libraries over custom builds for feature implementation,
+  with requirement-fit analysis and user choice before TECH is finalized. Reads
+  code-spec-common and code-architecture first. Stops at 方案设计完成. Use when
+  the user asks for code-spec-design, spec-design, requirements design, SPEC,
+  PRD, TECH, 方案设计, 先设计后实现, library selection, or planning before coding.
 ---
 
 # 方案设计（先设计后实现）
@@ -15,13 +16,14 @@ description: >-
 
 开始前先读 `../code-spec-common/SKILL.md`。术语、目录、状态、文档位置、CHANGELOG 和共同约束以它为准，下文不重复。
 
-先读代码和已有文档，再写方案。
+先读代码和已有文档，再写方案。架构共性（含成熟库优先）先读 `../code-architecture/SKILL.md`，下文只写方案流程，不重复那些原则。
 
 ## 硬性约束
 
 - 新需求只写增量。活文档里因本需求过时的陈述，同步时改掉。无歧义就写短，不保留已废弃结论。
 - 设计阶段只读业务源码和文档，不改业务源码。
 - 未同时满足「用户明确要求实现」和「没有未确认问题」之前，不写业务代码、测试代码，不改 `docs/cases/`。
+- 涉及功能级实现时：先评估仓库已有能力与成熟库是否可用，对照本需求写出选项，**用户选择后再写入 TECH 定案**；不擅自引入依赖或默认自研。
 - 原型只在用户明确要求时写。
 - 不自动发版，不自动重新部署。
 
@@ -108,8 +110,11 @@ description: >-
 ## 现状（只读对照）
 相关文件、入口（调用方式与标识）、数据、配置项。与代码不一致就停下来问。
 
+## 依赖与库选型
+本需求涉及的功能实现：已评估的仓库既有能力 / 成熟库 / 自研路径；对照本需求的覆盖与缺口；**用户已选方案**及简要理由。无需选型则写「无新依赖选型」。用户未拍板前，选项只放在「待确认问题」，不在此写成定案。
+
 ## 改动点
-模块或文件、接口契约、配置、算法或伪逻辑。写到实现时不用再猜的程度。实现方式跟随仓库已有约定。
+模块或文件、接口契约、配置、算法或伪逻辑。写到实现时不用再猜的程度。实现方式跟随仓库已有约定与已确认的库选型。
 
 ## 数据
 有结构或字段变更：写增量（哪些数据、字段、约束、结构如何变化），并同步全量 `docs/DB.md`。
@@ -126,7 +131,7 @@ description: >-
 本需求明确不动的范围，含不改旧需求文档。
 ```
 
-架构以 `docs/ARCHITECTURE.md` 为准。本需求若改变架构级事实，在 TECH 写增量，并同步其中已过时的对应陈述。没有架构级变化则不改该文件。
+架构以 `docs/ARCHITECTURE.md` 为准。本需求若改变架构级事实，在 TECH 写增量，并同步其中已过时的对应陈述。没有架构级变化则不改该文件。成熟库与自研的取舍原则以 `code-architecture` 为准。
 
 #### BRD.md（按需）
 
@@ -144,7 +149,9 @@ description: >-
 
 ### 4. 待确认问题
 
-写文档前在内部先列出全部开放问题（业务规则、数据来源、权限、失败行为、与旧需求冲突）。没有则进入第 5 步。
+写文档前在内部先列出全部开放问题（业务规则、数据来源、权限、失败行为、与旧需求冲突、**功能实现的库选型**）。没有则进入第 5 步。
+
+有库选型时：先按 `code-architecture` 完成「已有能力 → 成熟库 → 对照本需求」的分析，再作为待确认问题请用户选择；未确认前 TECH 的「依赖与库选型」不写定案。
 
 有问题时，每次回复只处理一条，禁止并列多问。格式固定：
 
@@ -155,7 +162,9 @@ description: >-
 请决策：…
 ```
 
-用户拍板后：把结论写进 SPEC / TECH / BRD 的正文，删掉该条开放问题，再发下一条。全部确认后才进入第 5 步。
+库选型类问题在「说明」中写清各选项的覆盖范围、缺口、风险与接入成本；「请决策」列出可选路径（含自研或「库 + 少量自研」）。
+
+用户拍板后：把结论写进 SPEC / TECH / BRD 的正文（库选型写入 TECH「依赖与库选型」），删掉该条开放问题，再发下一条。全部确认后才进入第 5 步。
 
 用户在启动本技能的消息里已经拍板的点，写成结论，不要再问一遍。
 
