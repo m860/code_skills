@@ -35,7 +35,7 @@ description: >-
 - 优先函数组件；不要新写 class 组件（除非维护存量 class）。
 - 文件命名跟随仓库；无约定时：组件用 PascalCase 文件名（如 `UserCard.tsx`），hooks / 工具用 camelCase（如 `useUserMenu.ts`、`formatDate.ts`）。
 - 一文件一主组件（或一个紧密相关的小组件簇）；默认导出 / 具名导出跟随仓库，新增代码保持一致。
-- 按功能域组织目录，不按「所有 components / 所有 hooks」无限堆平；共享 UI 放仓库既有的 shared / ui 位置。
+- 按**业务功能域**组织目录（与后端业务语言对齐更佳），不按「所有 components / 所有 hooks」无限堆平；也不按纯技术角色（如单独 `query/` 页面桶）切目录。共享 UI 放仓库既有的 shared / ui 位置。
 - 组件文件保持可读：渲染为主；复杂派生、请求、副作用抽到 hooks 或邻近模块。
 - 展示与数据编排可拆：容器 / 页面负责取数与状态，展示组件尽量纯 props 驱动（若仓库已有此分层则跟随）。
 
