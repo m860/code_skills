@@ -5,10 +5,11 @@ description: >-
   Reads code-architecture first for business-domain boundaries and reuse rules;
   this skill only adds NestJS stack conventions. Covers feature-module layout by
   business domain (not query/ingress-style technical facades), typing,
-  controllers/providers boundaries, DTO/validation, errors, config, logging,
-  testing, naming/DI, PNPM, and security basics. Use when writing or reviewing
-  NestJS backend code, or when the user asks for NestJS standards, Nest 规范,
-  domain modules, or Node/TS Nest coding conventions.
+  controllers/providers boundaries, `/api` prefix + URI versioning,
+  DTO/validation, errors, config, logging, testing, naming/DI, PNPM, and
+  security basics. Use when writing or reviewing NestJS backend code, or when
+  the user asks for NestJS standards, Nest 规范, domain modules, or Node/TS
+  Nest coding conventions.
 ---
 
 # NestJS 后端编码规范
@@ -109,6 +110,13 @@ src/
 - 守卫 / 拦截器 / 管道：横切能力用它们；业务 if/else 仍留在 service。
 - 不要在 provider 里 `new` 本可注入的依赖，以免绕过 DI 与测试替身。
 
+### 接口约束
+
+- 接口需要有前缀 `api`，每个接口支持版本控制。
+- 全局统一：`setGlobalPrefix('api')` + URI 版本（`enableVersioning`，`VersioningType.URI`）；完整路径形如 `/api/v1/...`。
+- Controller 用 `@Controller({ path: '…', version: '1' })`（或方法级 `@Version`）；禁止把 `api` / `v1` 写进业务 path 字符串重复拼装。
+- 无版本或不带 `api` 前缀的对外 HTTP 路由禁止新增；仓库已有更严版本策略时跟随仓库。
+
 ## 5. DTO / 校验 / Pipe
 
 - 入参一律 DTO 类（或仓库等价方案）+ `class-validator` / `class-transformer`（或仓库已采用的校验库）。
@@ -167,7 +175,7 @@ src/
 - 文件：kebab-case + 角色后缀，如 `order.service.ts`、`create-order.dto.ts`、`orders.controller.ts`、`orders.module.ts`。
 - 类：PascalCase，并带角色后缀：`OrdersController`、`OrdersService`、`OrdersModule`、`CreateOrderDto`。
 - 方法 / 变量：camelCase；常量：UPPER_SNAKE 或仓库既有风格。
-- 路由路径：复数资源名、小写、kebab-case（如 `/order-items`）；HTTP 动词与语义一致。
+- 路由路径：在 `/api/v{n}/` 之下用复数资源名、小写、kebab-case（如 `/api/v1/order-items`）；HTTP 动词与语义一致；前缀与版本见 §4「接口约束」。
 - DI：构造器注入 + `private readonly`；接口 token 用 `string` / symbol / 类，并在 module 中显式 `provide`/`useClass`（或仓库等价写法）。
 - 同一概念命名在 controller / service / dto / 测试间保持一致。
 
@@ -186,7 +194,7 @@ src/
 
 - 改代码前先读邻近模块的现有写法，保持一致。
 - 安装与脚本一律用 **pnpm**（如 `pnpm install`、`pnpm add`、`pnpm run …`）；只维护 `pnpm-lock.yaml`。
-- 新功能落在**对应业务域** feature module；边界清晰：controller 薄、service 厚、DTO 校验入参。
+- 新功能落在**对应业务域** feature module；边界清晰：controller 薄、service 厚、DTO 校验入参；对外路由带 `api` 前缀与版本。
 - 新外部依赖客户端放使用方域的 `adapters/`，不新建顶层技术域。
 - 补齐类型、校验、错误映射；**核心流程/逻辑补单元测试**；配置走 Config 模块。
 - 因外部系统跳过单测时写明原因与依赖；不确定的域边界、响应包装、鉴权方案：**先问**，不臆造全局约定。
@@ -211,7 +219,8 @@ src/
 
 1. 顶层 module 是否皆为业务域；有无技术门面 / 适配器平级冒充域（对照 §1）
 2. 模块边界与命名是否符合本规范与仓库现状
-3. 入参是否有 DTO + 校验；出参是否无敏感字段
-4. 错误是否走统一异常/过滤器；状态码是否合理
-5. 配置是否经 Config；日志是否无密钥
-6. 核心流程/逻辑是否有单元测试；若跳过，是否因外部系统并已标明
+3. 对外 HTTP 是否均在 `/api/v{n}/…`（有 `api` 前缀且带版本）
+4. 入参是否有 DTO + 校验；出参是否无敏感字段
+5. 错误是否走统一异常/过滤器；状态码是否合理
+6. 配置是否经 Config；日志是否无密钥
+7. 核心流程/逻辑是否有单元测试；若跳过，是否因外部系统并已标明
