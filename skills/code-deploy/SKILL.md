@@ -36,7 +36,7 @@ description: >-
   → HTTP 或 MCP deploy({ uploadId, releaseId? })
   → 服务：解压到 root/releases/<id>/
        → 在该目录执行 pnpm install --prod --frozen-lockfile
-       → 读 engines.node → nvm 选最大满足已装版本 → nvm exec 下 pnpm install
+       → 读 engines.node → nvm 选最小满足已装版本 → nvm exec 下 pnpm install
        → 切 current
        → pm2 describe <pm2Name>：已有进程 → reload；否则 → start current/ecosystem.config.cjs（interpreter=所选 node）
 ```
@@ -71,7 +71,7 @@ PM2 配置（`ecosystem.config.cjs`）须打进包：`name` = 登记的 `pm2Name
 | 版本来源 | 优先：环境变量 `VERSION` → CLI `--version`/`-v` → `docs/CHANGELOG.md` 最上 `## X.Y.Z`。缺失则失败并说明，不臆造。 |
 | 产物目录 | 组装一个可运行的扁平目录（下文称 `release/`）：可启动入口、生产依赖声明、锁文件、可选 `.env.example`、可选进程配置等。 |
 | **锁文件** | 必须带上与安装器匹配的 lock（node-pm2 当前为 **`pnpm-lock.yaml`**），否则服务端 `--frozen-lockfile` 会失败。 |
-| **Node 版本** | 产物 `package.json` 必须含 **`engines.node`**（可为 range）。code_deploy 用 nvm 在已装版本中取最大满足项再 `nvm exec`；缺 engines 或无一满足则部署失败。 |
+| **Node 版本** | 产物 `package.json` 必须含 **`engines.node`**（可为 range）。code_deploy 用 nvm 在已装版本中取**最小**满足项再 `nvm exec`；缺 engines 或无一满足则部署失败。 |
 | **不要**打进包 | `node_modules`（及同等依赖缓存）、真实 `.env` / 密钥。依赖在部署机按版本目录安装；环境在 `<root>` 共用。 |
 | 压缩包形态 | 生成 `.tar` / `.tar.gz` / `.tgz`。**归档成员应是扁平根**（`dist/`、`package.json`… 在包根），**不要**再包一层 `release/` 目录，以便解压到 `releases/<id>/` 后布局正确。 |
 | 文件名 | 建议 `{SemVer}-{YYYYMMDDHHmmss}.tgz`（或等价），便于未传 `releaseId` 时从文件名推导。也可用显式 `releaseId`。 |
