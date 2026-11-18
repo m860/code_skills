@@ -49,9 +49,9 @@ MCP **无** upload Tool：上传必须走 HTTP。
 
 | 项 | 约定 |
 | --- | --- |
-| 环境配置 | 真实 `.env` 在 `<root>/`，跨版本共用。包内最多带 `.env.example`。 |
+| 环境配置 | 真实 `.env` 在 `<root>/`，跨版本共用，是运行时配置的**唯一来源**。包内最多带 `.env.example`。 |
 | 依赖目录 | 如 `node_modules` 在 `releases/<id>/`，每版本独立；**默认不打进包**，由发布流程里的 `exec` 安装。 |
-| 进程 cwd | 建议与 `.env` 同目录，即 `<root>/`。 |
+| 进程 cwd | 建议与 `.env` 同目录，即 `<root>/`，以便进程读到该 `.env`。 |
 
 ## 共性约束（所有应用）
 
@@ -86,7 +86,8 @@ MCP **无** upload Tool：上传必须走 HTTP。
 | 锁文件 | 必须带上与安装器匹配的 lock（当前常见 **`pnpm-lock.yaml`**），以便目标机 `pnpm install --prod --frozen-lockfile`（经 `exec`）成功。 |
 | `engines.node` | 产物 `package.json` 建议含 **`engines.node`**，便于目标机选对运行时；缺则由调用方自行保证 Node 版本。 |
 | 启动入口 | 包内含可启动文件（如 `dist/main.js` 或仓库约定入口）。 |
-| 进程配置（若用 PM2） | 可带 `ecosystem.config.cjs`：`cwd` 指向应用 **root**（与 `.env` 同目录）；`script` 指向版本目录内入口（相对包内路径，解压到 `releases/<id>/` 后仍成立）。 |
+| 进程配置（若用 PM2） | 可带 `ecosystem.config.cjs`：只写进程接线（`name` / `script` / `cwd` / `instances` / `exec_mode` 等）。`cwd` 指向应用 **root**（与 `.env` 同目录）；`script` 指向版本目录内入口（相对包内路径，解压到 `releases/<id>/` 后仍成立）。 |
+| 环境变量 | **优先且只认**应用 root 的 `.env`。**禁止**在 `ecosystem`（或等价进程配置）里写入 / 注入运行时环境变量（如 `PORT`、`NODE_ENV`、密钥、业务配置）。也不要从 `.env` 读出再写进 ecosystem。宿主或进程管理器若已有同名变量，应用启动时应让 `.env` 覆盖它们（勿依赖 ecosystem 来“钉死”）。 |
 | 安装时机 | **不**假设 code_deploy 自动 `pnpm install`；由发布流程 `exec` 在解压目录执行。 |
 
 ## Web 应用（静态 / 前端构建产物）
@@ -122,4 +123,4 @@ code_deploy 每应用仅需：
 
 ## 完成时输出
 
-只改打包脚本时：列出改动路径，并核对：扁平包、无真实 `.env`、无不当依赖目录、Node/Web 关键入口、以及「upload → exec」而非旧 `deploy(uploadId)` 话术。
+只改打包脚本时：列出改动路径，并核对：扁平包、无真实 `.env`、无不当依赖目录、Node/Web 关键入口、ecosystem（若有）未注入运行时环境变量、以及「upload → exec」而非旧 `deploy(uploadId)` 话术。
