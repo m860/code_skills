@@ -78,6 +78,7 @@ PM2 配置（`ecosystem.config.cjs`）须打进包：`name` = 登记的 `pm2Name
 | 进程配置 | **必须**带 `ecosystem.config.cjs`（首次上线靠 `pm2 start current/ecosystem.config.cjs`）。`name` = `pm2Name`；**`cwd` = 应用 root（`.env` 所在）**；`script` = 版本目录内入口（打包时用相对/`__dirname` 表达，部署后落在 `releases/<id>/`）。 |
 | 说明文字 | README / 注释须写清：共用 `.env` 在 root、每版本自有 `node_modules`、进程 cwd = root。 |
 | 可重复 | 脚本可直接执行；注明最小依赖与入参（`VERSION` / `--version`）。 |
+| **本地包清理** | 仓库 `.gitignore` 须忽略 `*.tgz` / `*.tar` / `*.tar.gz`。打包前可清掉旧包。**upload → deploy 成功后立即删除**本次本地压缩包（含别名如 `release.tgz`），勿提交、勿长期留在工作区。 |
 
 ### 建议步骤（实现模板）
 
@@ -170,6 +171,7 @@ PM2 配置（`ecosystem.config.cjs`）须打进包：`name` = 登记的 `pm2Name
 - 没有部署入口：警告「仓库中没有部署入口，本次未执行实际部署」，然后进入第 4 步。
 - 有多份且分不清：警告并列出这些入口，不执行其中任何一份，然后进入第 4 步。
 - 执行失败：停止，不进入第 4 步。
+- 若入口产出并上传了本地 `.tgz` / `.tar.gz`：**仅在 deploy 成功后**删除这些本地压缩包（失败时保留便于重试）。
 
 ### 4. 再更新 changelog
 
@@ -189,7 +191,7 @@ PM2 配置（`ecosystem.config.cjs`）须打进包：`name` = 登记的 `pm2Name
 
 1. 读 `docs/CHANGELOG.md`。没有顶版：停止，告知尚未发版，需要先发版。
 2. 按 `code-spec-common` 的重新部署执行：不升版，不改需求状态，不改已有变更条目。版本号用当前顶版。
-3. 部署入口的查找和执行与发版相同。没有入口或分不清入口时警告并继续。执行失败则停止，不改 `LAST_SHIPPED`，不追加 `redeploy` 行。
+3. 部署入口的查找和执行与发版相同。没有入口或分不清入口时警告并继续。执行失败则停止，不改 `LAST_SHIPPED`，不追加 `redeploy` 行。deploy 成功后删除本次本地压缩包（同发版）。
 4. 进入文档更新时：按 `code-spec-common` 更新 `LAST_SHIPPED`，并可在该顶版区段下追加 `redeploy` 行。没有执行成功的部署入口时，同样警告文档已更新、但没有执行实际部署。
 
 ## 完成时输出
