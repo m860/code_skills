@@ -36,10 +36,32 @@ description: >-
   → HTTP 或 MCP deploy({ uploadId, releaseId? })
   → 服务：解压到 root/releases/<id>/
        → 在该目录执行 pnpm install --prod --frozen-lockfile
-       → 切 current → pm2 reload <pm2Name>
+       → 读 engines.node → nvm 选最大满足已装版本 → nvm exec 下 pnpm install
+       → 切 current
+       → pm2 describe <pm2Name>：已有进程 → reload；否则 → start current/ecosystem.config.cjs（interpreter=所选 node）
 ```
 
 MCP **没有** upload Tool：上传必须走 HTTP；再 MCP/HTTP deploy。
+
+### 部署机目录约定（node-pm2）
+
+```
+<root>/                          ← apps 登记的 root；进程 cwd 与此相同
+  .env                           ← 各版本共用（运维维护；不进发布包）
+  current → releases/<id>
+  releases/<id>/                 ← 本次解压的包内容
+    …启动文件、清单、锁…
+    node_modules/                ← 仅该版本；deploy 时在本目录安装
+```
+
+| 项 | 约定 |
+| --- | --- |
+| **环境配置** | 真实 `.env`（或等价）在 **`<root>/`**，**跨版本共用**。发布包可带 `.env.example` 作样例，**禁止**把真实密钥/环境打进包，也**不要**暗示「每个 release 各放一份 `.env`」。 |
+| **依赖目录** | `node_modules`（或同等）在 **`releases/<id>/`**，**每版本独立**；包内不带，由 code_deploy 在该目录安装。 |
+| **进程 cwd** | 与 `.env` 所在目录一致，即 **`<root>/`**。相对路径的数据/日志等相对此目录解析。 |
+| **启动脚本** | 指向当前版本内的入口（如 `releases/<id>/…` 或经由 `current`）；**不要**把 cwd 设成版本目录以致读不到根上共用 `.env`、或把 data/logs 写进版本树。 |
+
+PM2 配置（`ecosystem.config.cjs`）须打进包：`name` = 登记的 `pm2Name`；**`cwd` = `<root>`**；`script` = 该版本内的启动文件。code_deploy 在切 `current` 后：进程已存在则 `reload`，否则 `start current/ecosystem.config.cjs`（无需手工先 start）。
 
 ### 打包脚本必须做到
 
@@ -47,12 +69,14 @@ MCP **没有** upload Tool：上传必须走 HTTP；再 MCP/HTTP deploy。
 | --- | --- |
 | 版本写入 | **仅**写入发布产物内的清单（如产物 `package.json` 的 `version`）。**禁止**改仓库源码里的版本字段。 |
 | 版本来源 | 优先：环境变量 `VERSION` → CLI `--version`/`-v` → `docs/CHANGELOG.md` 最上 `## X.Y.Z`。缺失则失败并说明，不臆造。 |
-| 产物目录 | 组装一个可运行的扁平目录（下文称 `release/`）：可启动入口、生产依赖声明、锁文件、示例配置等。 |
+| 产物目录 | 组装一个可运行的扁平目录（下文称 `release/`）：可启动入口、生产依赖声明、锁文件、可选 `.env.example`、可选进程配置等。 |
 | **锁文件** | 必须带上与安装器匹配的 lock（node-pm2 当前为 **`pnpm-lock.yaml`**），否则服务端 `--frozen-lockfile` 会失败。 |
-| **不要**打进包 | `node_modules`（及同等依赖缓存）。安装在部署机完成。 |
+| **Node 版本** | 产物 `package.json` 必须含 **`engines.node`**（可为 range）。code_deploy 用 nvm 在已装版本中取最大满足项再 `nvm exec`；缺 engines 或无一满足则部署失败。 |
+| **不要**打进包 | `node_modules`（及同等依赖缓存）、真实 `.env` / 密钥。依赖在部署机按版本目录安装；环境在 `<root>` 共用。 |
 | 压缩包形态 | 生成 `.tar` / `.tar.gz` / `.tgz`。**归档成员应是扁平根**（`dist/`、`package.json`… 在包根），**不要**再包一层 `release/` 目录，以便解压到 `releases/<id>/` 后布局正确。 |
 | 文件名 | 建议 `{SemVer}-{YYYYMMDDHHmmss}.tgz`（或等价），便于未传 `releaseId` 时从文件名推导。也可用显式 `releaseId`。 |
-| 进程名 | 若生成 PM2 配置，其中的 name 须与 apps 登记里的 `pm2Name` 一致。 |
+| 进程配置 | **必须**带 `ecosystem.config.cjs`（首次上线靠 `pm2 start current/ecosystem.config.cjs`）。`name` = `pm2Name`；**`cwd` = 应用 root（`.env` 所在）**；`script` = 版本目录内入口（打包时用相对/`__dirname` 表达，部署后落在 `releases/<id>/`）。 |
+| 说明文字 | README / 注释须写清：共用 `.env` 在 root、每版本自有 `node_modules`、进程 cwd = root。 |
 | 可重复 | 脚本可直接执行；注明最小依赖与入参（`VERSION` / `--version`）。 |
 
 ### 建议步骤（实现模板）
@@ -60,10 +84,10 @@ MCP **没有** upload Tool：上传必须走 HTTP；再 MCP/HTTP deploy。
 ```
 1. 解析 SemVer（VERSION / --version / CHANGELOG；禁止改仓库源码 version）
 2. 按仓库既有方式完成生产构建
-3. 清空并组装 release/（扁平：启动文件、清单、lock、.env.example、可选 ecosystem）
-4. 断言关键入口与 lock 存在
+3. 清空并组装 release/（扁平：启动文件、清单、lock；可选 .env.example；可选 ecosystem且 cwd=root）
+4. 断言关键入口与 lock 存在；确认无 node_modules、无真实 .env
 5. tar：在 release/ 目录内打包当前目录内容（等价于 tar -czf out.tgz -C release .）
-6. 打印产物路径；提醒：upload → deploy(uploadId)；依赖由 code_deploy 安装
+6. 打印产物路径；提醒：upload → deploy(uploadId)；依赖装在 releases/<id>/；.env 在 root 共用
 ```
 
 ### 与「发版」口令的关系
@@ -185,6 +209,6 @@ MCP **没有** upload Tool：上传必须走 HTTP；再 MCP/HTTP deploy。
 3. `LAST_SHIPPED`
 4. 是否追加了 `redeploy` 行
 
-只改打包脚本时：列出改动的脚本路径与是否满足 code_deploy 扁平包 / lock / 无 node_modules 等要点。
+只改打包脚本时：列出改动的脚本路径与是否满足 code_deploy 扁平包 / lock / 无 node_modules / 无真实 `.env`、以及进程 cwd = root（与共用 `.env` 同目录）等要点。
 
 入口失败或尚未发布就停止时：只说明停因，不改 CHANGELOG 和 `STATUS.md`。
