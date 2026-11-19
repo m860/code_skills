@@ -5,16 +5,16 @@ description: >-
   new SemVer, or redeploys the current top version without a bump. Reads
   code-spec-common first. Runs the project's existing deploy entrypoint, then
   requires a passing health check before updating docs/CHANGELOG.md and those
-  status rows. For pack/release script constraints aimed at the code_deploy
-  tool, use code-pack-script. Use when the user asks for code-deploy, 部署,
-  deploy, 发版, 重新部署, or release.
+  status rows. Independent of code-deploy-service (the code_deploy product
+  itself). Use when the user asks for code-deploy, 部署, deploy, 发版,
+  重新部署, or release.
 ---
 
 # 部署
 
 本技能是 `code-spec-common` 的专用层。只做两件事：发版，或重新部署。不设计方案，不写业务代码，不把别的状态改成 `待部署`。
 
-**打包脚本约束**（产物如何被 code_deploy 的 upload + exec 消费）见同仓库 `../code-pack-script/SKILL.md`，本文件不重复。
+本技能只约束**通用部署流程**（圈定需求、定版本、跑部署入口、健康检查、写 CHANGELOG / STATUS）。**code-deploy 服务**（应用登记、upload、exec 等）见独立技能 `code-deploy-service`，二者不互相包含，本文件不重复服务侧说明。
 
 开始前先读 `../code-spec-common/SKILL.md`。术语、目录、状态、CHANGELOG 和共同约束以它为准，下文不重复。网络失败先读 `../code-network/SKILL.md`。
 
@@ -24,11 +24,9 @@ description: >-
 
 仓库里已有、由文件名、目录名或项目文档标明用于部署的入口。找到就执行，版本按该入口既有方式传入。不规定语言、框架或命令形式。
 
-若入口是面向 code_deploy 的打包脚本：产物须满足 `code-pack-script`。
-
 ## 健康检查门禁（写文档前必过）
 
-部署入口（含 upload + 多次 exec）**成功之后**、更新 `docs/CHANGELOG.md` / `docs/features/STATUS.md` / `LAST_SHIPPED` **之前**，必须做健康检查。未通过则整次发布失败：不改上述任何文档。
+部署入口**成功之后**、更新 `docs/CHANGELOG.md` / `docs/features/STATUS.md` / `LAST_SHIPPED` **之前**，必须做健康检查。未通过则整次发布失败：不改上述任何文档。
 
 ### 如何找到检查地址
 
@@ -58,7 +56,6 @@ description: >-
 - 没有部署入口：明确警告「仓库中没有部署入口，本次未执行实际部署」，然后仍走健康检查；检查通过才更新文档。
 - 有多份且分不清该执行哪一份：不擅自挑选。警告并列出找到的入口，然后仍走健康检查门禁。
 - 部署入口执行失败，或健康检查失败：停下。不写 CHANGELOG，不改 `STATUS.md`，不更新 `LAST_SHIPPED`，说明失败原因。
-- 若入口产出并上传了本地 `.tgz` / `.tar.gz`：按 `code-pack-script`，仅在发布相关 `exec` **且健康检查**成功后删除本地压缩包（失败保留重试）。
 
 ## 先分清口令
 
@@ -66,7 +63,6 @@ description: >-
 | --- | --- |
 | 部署、deploy、发版 | 发版 |
 | 重新部署 | 重新部署 |
-| 打包脚本、pack:release、code-pack-script（未要求发版） | 只写/改打包脚本 → `code-pack-script`，本技能不发版 |
 
 两个发版口令都没说清时，先问一条：这次是发版，还是用当前顶版重新部署。不要猜测。
 
