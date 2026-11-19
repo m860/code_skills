@@ -91,9 +91,9 @@ src/
 | 命名 | `{title}-{timestamp}`；`timestamp` 为本地时间 `YYYYMMDDHHmmss`（例：`add-order-status-20260319143000`） |
 | 回滚 | 每个脚本同时提供 **`up`** 与 **`down`**；`down` 须能撤销对应 `up` |
 | 执行时机 | **应用启动时**自动执行待应用的迁移；迁移失败则启动失败，不得带未齐 schema 继续跑 |
+| 禁止自动同步 | **禁止**表结构自动同步（如 TypeORM `synchronize: true`、等价 auto-schema / auto-migrate）。任何环境均不得开启；表结构只经由迁移脚本变更 |
 
 - 改实体 / 表结构时同步新增迁移脚本；禁止只改 `*.entity.ts` 却不提交迁移。
-- 禁止依赖 ORM 的自动同步（如 `synchronize: true`）作为正式改表手段；开发期仓库若另有约定除外，生产路径仍以迁移为准。
 - 迁移实现方式（自研 runner / TypeORM / 其他）跟随仓库；没有约定先问。不规定具体 SQL 方言。
 
 ## 3. TypeScript 严格性
@@ -224,7 +224,7 @@ src/
 - 不新建 `query` / 独立 `ingress` 域 / 空壳 `pipeline` 域 / 与业务平级的 SDK 域。
 - 不在业务 service 里直接操作 `request`/`response`，或绕过 Nest 管道/过滤器手写一套平行框架。
 - 不把 ORM 实体当 API 契约；不返回敏感字段。
-- 不只改实体、不提交迁移，或不提供 `down`；不把正式改表交给 ORM 自动同步。
+- 不只改实体、不提交迁移，或不提供 `down`；不开启任何表结构自动同步（含开发环境）。
 - 不关 TypeScript 严格项、不滥用 `any`、不吞异常后返回假成功。
 - 不硬编码密钥；不 `console.log` 密钥或完整请求头。
 - 不引入与仓库冲突的风格（随意换 ORM、换校验库、换模块格式），除非用户明确要求。
