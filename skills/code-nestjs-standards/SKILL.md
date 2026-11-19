@@ -6,10 +6,11 @@ description: >-
   this skill only adds NestJS stack conventions. Covers feature-module layout by
   business domain (not query/ingress-style technical facades), typing,
   controllers/providers boundaries, `/api` prefix + URI versioning,
-  DTO/validation, errors, config, logging, testing, naming/DI, PNPM, and
-  security basics. Use when writing or reviewing NestJS backend code, or when
-  the user asks for NestJS standards, Nest 规范, domain modules, or Node/TS
-  Nest coding conventions.
+  DTO/validation, errors, config, logging, testing, naming/DI, PNPM,
+  security basics, and DB migrations (in-repo `{title}-{timestamp}` scripts with
+  up/down, applied at app startup). Use when writing or reviewing NestJS
+  backend code, or when the user asks for NestJS standards, Nest 规范, domain
+  modules, migrations, or Node/TS Nest coding conventions.
 ---
 
 # NestJS 后端编码规范
@@ -50,6 +51,7 @@ src/
         {adapter}.module.ts      # 通常只被本域 module import，不在 AppModule 平铺
   common/                        # 跨域横切：守卫、过滤器、管道、无业务语义工具
   config/                        # 配置与校验
+  migrations/                    # 数据迁移脚本（路径名跟随仓库；须在项目内）
 ```
 
 ### Nest 落位规则
@@ -79,7 +81,22 @@ src/
 - `AppModule` 只组装：根配置、基础设施、**业务域** feature module；不写业务逻辑；不把适配器 module 与业务域平铺一长串（适配器由所属域 module import）。
 - 禁止循环依赖：优先下沉共享数据访问、事件或拆模块；`forwardRef` 仅权宜。不要用新建 `query` 模块来「躲开」环。
 
-## 2. TypeScript 严格性
+## 2. 数据迁移
+
+表结构变更必须通过**项目内**迁移脚本完成，不靠手工改库、不靠仅存在于本地/运维机的临时 SQL。
+
+| 项 | 要求 |
+| --- | --- |
+| 存放 | 全部迁移脚本进仓库（如 `migrations/`；目录名跟随仓库，没有约定先问） |
+| 命名 | `{title}-{timestamp}`；`timestamp` 为本地时间 `YYYYMMDDHHmmss`（例：`add-order-status-20260319143000`） |
+| 回滚 | 每个脚本同时提供 **`up`** 与 **`down`**；`down` 须能撤销对应 `up` |
+| 执行时机 | **应用启动时**自动执行待应用的迁移；迁移失败则启动失败，不得带未齐 schema 继续跑 |
+
+- 改实体 / 表结构时同步新增迁移脚本；禁止只改 `*.entity.ts` 却不提交迁移。
+- 禁止依赖 ORM 的自动同步（如 `synchronize: true`）作为正式改表手段；开发期仓库若另有约定除外，生产路径仍以迁移为准。
+- 迁移实现方式（自研 runner / TypeORM / 其他）跟随仓库；没有约定先问。不规定具体 SQL 方言。
+
+## 3. TypeScript 严格性
 
 - 开启并保持严格相关选项（`strict`、`noImplicitAny`、`strictNullChecks` 等）。不为图省事关闭。
 - 禁止 `any`；确需逃逸用 `unknown` 并收窄。禁止无意义的 `as` 断言；断言前须有类型守卫或校验。
@@ -88,7 +105,7 @@ src/
 - `enum` 仅在有稳定闭合集合时使用；否则用联合字面量类型。
 - 异步函数返回 `Promise<T>`；不要把 Promise 当值漏掉 `await`。
 
-## 3. Node.js 20+ 约定
+## 4. Node.js 20+ 约定
 
 - 以 Node 20+ API 为准：优先 `node:` 协议导入内置模块（如 `node:fs/promises`、`node:path`）。
 - 禁止依赖已弃用或文档标明将移除的 API；禁止为兼容 Node 16/18 写垫片，除非仓库明确要求。
@@ -96,7 +113,7 @@ src/
 - 模块格式（ESM/CJS）**跟随 Nest/仓库既有配置**，不在本技能中强行切换；新增文件与现有 `import`/`require` 风格一致。
 - 不引入仅在浏览器或非 Node 环境可用的 API。
 
-## 4. Controller / Provider / Module 边界
+## 5. Controller / Provider / Module 边界
 
 | 层 | 职责 | 禁止 |
 | --- | --- | --- |
@@ -117,7 +134,7 @@ src/
 - Controller 用 `@Controller({ path: '…', version: '1' })`（或方法级 `@Version`）；禁止把 `api` / `v1` 写进业务 path 字符串重复拼装。
 - 无版本或不带 `api` 前缀的对外 HTTP 路由禁止新增；仓库已有更严版本策略时跟随仓库。
 
-## 5. DTO / 校验 / Pipe
+## 6. DTO / 校验 / Pipe
 
 - 入参一律 DTO 类（或仓库等价方案）+ `class-validator` / `class-transformer`（或仓库已采用的校验库）。
 - 全局或路由级启用 `ValidationPipe`：`whitelist: true`、`forbidNonWhitelisted: true`、`transform: true`（除非仓库另有更严配置）。
@@ -126,7 +143,7 @@ src/
 - 校验失败返回统一校验错误形状（见错误处理）；不要吞掉 pipe 错误后改抛含糊 500。
 - 出参可用专用 Response DTO / serializer；禁止直接泄露实体内部字段（密码哈希、内部标志等）。
 
-## 6. 错误处理与 HTTP 响应
+## 7. 错误处理与 HTTP 响应
 
 - 业务可预期失败用 Nest `HttpException` 子类或领域异常 + 全局过滤器映射；禁止裸 `throw new Error` 当 HTTP 结果。
 - 不在 controller 里随手 `try/catch` 再 `res.status().json()`，除非过滤器无法覆盖的边界。
@@ -146,7 +163,7 @@ src/
 - 状态码语义正确：`400` 校验/非法入参，`401`/`403` 认证授权，`404` 资源不存在，`409` 冲突，`422` 语义不可处理（若团队使用），`5xx` 仅未处理异常。
 - 不要把内部堆栈、SQL、文件路径返回给客户端。
 
-## 7. 配置与环境变量
+## 8. 配置与环境变量
 
 - 通过 Nest `ConfigModule` / 等价配置模块读取环境变量；禁止在业务代码散落 `process.env.X`。
 - 启动时校验必需配置（schema 或自定义 validate）；缺关键配置应**启动失败**，不要带错配置跑起来。
@@ -154,7 +171,7 @@ src/
 - 密钥、令牌、连接串只来自环境或密钥管理，不写进源码、示例提交物或默认值里的真密钥。
 - `.env*` 是否入库跟随仓库；哪怕示例文件也只用占位符。
 
-## 8. 日志
+## 9. 日志
 
 - 使用 Nest `Logger` 或仓库统一日志封装；禁止长期保留 `console.log` 作为正式日志。
 - 日志带上下文：模块名、关键业务 id（非敏感）、请求关联 id（若有）。
@@ -162,7 +179,7 @@ src/
 - **禁止**记录密码、令牌、cookie、Authorization、完整支付信息、身份证等密钥与 PII；需要排障时记脱敏后的标识。
 - 生产环境不打冗长 debug；不依赖日志代替指标与审计。
 
-## 9. 测试约定（高层）
+## 10. 测试约定（高层）
 
 - **核心流程 / 核心业务逻辑必须写单元测试**（典型落在 service、领域纯函数、关键 pipe/guard 等）。单测测行为与边界，不测框架本身；文件名与命令跟随仓库（如 `*.spec.ts`）。
 - **涉及外部系统时可跳过单元测试**：依赖真实第三方 API、支付、短信、不可替身的外部 IO 等，且无法在不连外网/外部服务的前提下稳定测通时，可跳过单测。须在代码或邻近测试说明里标明跳过原因与依赖的外部系统；未标明不得擅自跳过。
@@ -170,16 +187,16 @@ src/
 - **e2e / 集成**（按仓库需要）：HTTP 路径、校验、鉴权、模块装配；用测试模块与测试配置，不连真实生产资源。
 - 测试数据可重复、可隔离；不依赖执行顺序。仓库已有测试结构时跟随；没有约定先问再写。
 
-## 10. 命名、文件名与 DI 风格
+## 11. 命名、文件名与 DI 风格
 
 - 文件：kebab-case + 角色后缀，如 `order.service.ts`、`create-order.dto.ts`、`orders.controller.ts`、`orders.module.ts`。
 - 类：PascalCase，并带角色后缀：`OrdersController`、`OrdersService`、`OrdersModule`、`CreateOrderDto`。
 - 方法 / 变量：camelCase；常量：UPPER_SNAKE 或仓库既有风格。
-- 路由路径：在 `/api/v{n}/` 之下用复数资源名、小写、kebab-case（如 `/api/v1/order-items`）；HTTP 动词与语义一致；前缀与版本见 §4「接口约束」。
+- 路由路径：在 `/api/v{n}/` 之下用复数资源名、小写、kebab-case（如 `/api/v1/order-items`）；HTTP 动词与语义一致；前缀与版本见 §5「接口约束」。
 - DI：构造器注入 + `private readonly`；接口 token 用 `string` / symbol / 类，并在 module 中显式 `provide`/`useClass`（或仓库等价写法）。
 - 同一概念命名在 controller / service / dto / 测试间保持一致。
 
-## 11. 安全基线
+## 12. 安全基线
 
 - 所有外部输入经校验与白名单；不信任客户端字段。
 - 鉴权与鉴权后的授权分开：认证守卫 + 权限/角色检查；默认拒绝。
@@ -188,7 +205,7 @@ src/
 - 文件上传、重定向 URL、模板渲染等按仓库要求做类型/大小/允许列表限制。
 - 依赖变更注意已知漏洞；不引入无必要的动态 `eval` / 任意 `exec`。
 
-## 12. Agent 应做 / 不应做
+## 13. Agent 应做 / 不应做
 
 ### 应做
 
@@ -196,6 +213,7 @@ src/
 - 安装与脚本一律用 **pnpm**（如 `pnpm install`、`pnpm add`、`pnpm run …`）；只维护 `pnpm-lock.yaml`。
 - 新功能落在**对应业务域** feature module；边界清晰：controller 薄、service 厚、DTO 校验入参；对外路由带 `api` 前缀与版本。
 - 新外部依赖客户端放使用方域的 `adapters/`，不新建顶层技术域。
+- 表结构变更同步提交 `{title}-{timestamp}` 迁移（含 `up`/`down`），并由应用启动执行。
 - 补齐类型、校验、错误映射；**核心流程/逻辑补单元测试**；配置走 Config 模块。
 - 因外部系统跳过单测时写明原因与依赖；不确定的域边界、响应包装、鉴权方案：**先问**，不臆造全局约定。
 - 只改与任务相关的文件；保持变更可审阅。
@@ -206,6 +224,7 @@ src/
 - 不新建 `query` / 独立 `ingress` 域 / 空壳 `pipeline` 域 / 与业务平级的 SDK 域。
 - 不在业务 service 里直接操作 `request`/`response`，或绕过 Nest 管道/过滤器手写一套平行框架。
 - 不把 ORM 实体当 API 契约；不返回敏感字段。
+- 不只改实体、不提交迁移，或不提供 `down`；不把正式改表交给 ORM 自动同步。
 - 不关 TypeScript 严格项、不滥用 `any`、不吞异常后返回假成功。
 - 不硬编码密钥；不 `console.log` 密钥或完整请求头。
 - 不引入与仓库冲突的风格（随意换 ORM、换校验库、换模块格式），除非用户明确要求。
@@ -223,4 +242,5 @@ src/
 4. 入参是否有 DTO + 校验；出参是否无敏感字段
 5. 错误是否走统一异常/过滤器；状态码是否合理
 6. 配置是否经 Config；日志是否无密钥
-7. 核心流程/逻辑是否有单元测试；若跳过，是否因外部系统并已标明
+7. 涉及表结构时是否有项目内 `{title}-{timestamp}` 迁移（`up`/`down`），且由启动时执行（对照 §2）
+8. 核心流程/逻辑是否有单元测试；若跳过，是否因外部系统并已标明
