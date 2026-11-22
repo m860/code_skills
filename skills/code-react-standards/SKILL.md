@@ -4,15 +4,16 @@ description: >-
   React + TypeScript frontend coding standards for agents. Reads
   code-architecture first for shared architecture/reuse rules; this skill only
   adds React stack conventions. Pins PNPM, MUI, dayjs, axios, and TanStack
-  Query (@tanstack/react-query). Covers components, hooks, props typing,
-  effects, styling, a11y, performance, testing, and security basics. Use when
-  writing or reviewing React code, or when the user asks for React standards,
-  React 规范, or frontend React coding conventions.
+  Query (@tanstack/react-query). Pins page E2E to Playwright MCP. Covers
+  components, hooks, props typing, effects, styling, a11y, performance,
+  testing, and security basics. Use when writing or reviewing React code, or
+  when the user asks for React standards, React 规范, or frontend React coding
+  conventions.
 ---
 
 # React 前端编码规范
 
-本技能约束 **React + TypeScript** 前端实现。写或改 React 代码前读本文件并遵守。下文钉死的库（pnpm / MUI / dayjs / axios / TanStack Query）必须使用，不另起竞争栈；其余未钉死项跟随仓库，没有约定先问。
+本技能约束 **React + TypeScript** 前端实现。写或改 React 代码前读本文件并遵守。下文钉死的库与方式（pnpm / MUI / dayjs / axios / TanStack Query / 页面 E2E 用 Playwright MCP）必须使用，不另起竞争栈；其余未钉死项跟随仓库，没有约定先问。
 
 先读通用 `../code-architecture/SKILL.md`。复用、边界、分层、抽取时机等架构共性以它为准；本技能只写 React 栈约定，不重复那些内容。
 
@@ -28,7 +29,8 @@ description: >-
 - 日期时间：**dayjs**。解析、格式化、运算用 dayjs；不新引入 `moment`、`date-fns` 等（存量除外，新代码仍用 dayjs）
 - HTTP 客户端：**axios**。接口请求用 axios（可集中封装实例）；不另起 fetch 包装层或 ky / ofetch 等竞争客户端作为默认方案
 - 服务端状态 / 查询与变更：**TanStack Query**（`@tanstack/react-query`），使用 `useQuery` / `useMutation` 等。列表与远端读写走 Query；不新引入 SWR、RTK Query、手写全局请求缓存作为默认
-- 路由、客户端全局 UI 状态、测试运行器等未钉死项：**跟随仓库已有约定**；没有约定先问，不擅自引入第二套
+- 页面 E2E：**Playwright MCP**。通过 Playwright MCP 驱动浏览器跑页面流程；不新引入 Cypress、Puppeteer、裸 Playwright 脚本套件等竞争 E2E 栈作为默认
+- 路由、客户端全局 UI 状态、单元测试运行器等未钉死项：**跟随仓库已有约定**；没有约定先问，不擅自引入第二套
 
 ## 1. 组件结构与文件命名
 
@@ -95,9 +97,9 @@ description: >-
 
 ## 8. 测试约定（高层）
 
-- 测试目录、命名与命令跟随仓库；没有约定先问。
+- 单元测试的目录、命名与命令跟随仓库；没有约定先问。
 - **核心组件必须写单元测试**：可复用/承载关键交互或展示规则的组件（含关键自定义 hooks），优先测用户可见行为与边界，少测实现细节。
-- **页面级流程 / 页面逻辑必须写 E2E 测试**：路由页、多步用户路径、页面编排与关键成功/失败路径。
+- **页面级流程 / 页面逻辑必须用 Playwright MCP 做 E2E**：路由页、多步用户路径、页面编排与关键成功/失败路径。以用例文档为步骤与期望真源，经 Playwright MCP 打开应用、操作与断言；不另起 Cypress / Puppeteer / 默认裸 Playwright 测试套件。
 - **涉及外部系统时可跳过测试**：流程或逻辑依赖真实第三方、不可替身的外部服务，且无法在隔离环境稳定跑通时，可跳过对应单测或 E2E。须标明跳过原因与依赖的外部系统；未标明不得擅自跳过。
 - 能用 mock / MSW / 测试替身隔离的依赖，仍应写测，不算「可跳过」。
 - 查询优先按角色、标签文本等无障碍语义（若使用 Testing Library）；避免处处依赖测试专用 id，除非仓库惯例。
@@ -120,13 +122,13 @@ description: >-
 - 安装与脚本一律用 **pnpm**；只维护 `pnpm-lock.yaml`。
 - UI 用 **MUI**；日期用 **dayjs**；HTTP 用 **axios**；远端读写用 **TanStack Query**（`useQuery` / `useMutation`）。
 - 组件职责清晰：展示、本地状态、服务端状态边界分明；Props 与关键状态有明确类型。
-- 补齐无障碍；**核心组件补单元测试，页面逻辑补 E2E**；因外部系统跳过时写明原因与依赖。
+- 补齐无障碍；**核心组件补单元测试，页面逻辑用 Playwright MCP 补 E2E**；因外部系统跳过时写明原因与依赖。
 - 不确定路由、客户端全局状态、RSC 边界等未钉死项时：**先问**。
 
 ### 不应做
 
 - 不用 npm / yarn；不生成、不提交 `package-lock.json` 或 `yarn.lock`。
-- 不引入竞争栈：不用 Ant Design/Chakra 等替代 MUI；不用 moment/date-fns 替代 dayjs（新代码）；不用自研 fetch 层或 ky 等替代 axios 作为默认；不用 SWR/RTK Query 等替代 TanStack Query。
+- 不引入竞争栈：不用 Ant Design/Chakra 等替代 MUI；不用 moment/date-fns 替代 dayjs（新代码）；不用自研 fetch 层或 ky 等替代 axios 作为默认；不用 SWR/RTK Query 等替代 TanStack Query；不用 Cypress / Puppeteer / 裸 Playwright 套件替代 Playwright MCP 做页面 E2E。
 - 不新写 class 组件（除非改存量）；不在条件里调用 Hooks。
 - 不默认堆 `useMemo` / `useCallback` / `memo`；不用全局 store 手写远端列表缓存来绕过 Query。
 - 不对可隔离的核心组件/页面流程省略测试，或不经说明就以「外部系统」为由跳过。
@@ -140,5 +142,5 @@ description: >-
 3. Hooks 用法与状态放置是否合理；远端数据是否走 TanStack Query + axios  
 4. Props 与关键类型是否严格；有无 `any` / 危险 HTML  
 5. UI 是否用 MUI、日期是否用 dayjs、包管理是否只用 pnpm  
-6. 核心组件是否有单测、页面逻辑是否有 E2E；若跳过，是否因外部系统并已标明  
+6. 核心组件是否有单测、页面逻辑是否经 Playwright MCP 做 E2E；若跳过，是否因外部系统并已标明  
 7. 是否无默认记忆化噪音；列表 `key` 是否稳定  
