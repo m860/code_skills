@@ -34,25 +34,50 @@ Domain 判据见 `../code-architecture/SKILL.md` §1。Nest 侧落实为：
 
 **一个业务域 = 一个（或一组紧密相关的）Nest feature module**，目录与模块名用业务语言。
 
-### 允许的顶层目录
+### 目录结构（明确）
+
+顶层按**业务域**切开；适配器不与业务域平级。示意（域名举例，按产品实际命名）：
 
 ```
 src/
   main.ts
-  app.module.ts
-  {domain}/                      # 业务域，如 project / event / analysis / notification / audit
-    {domain}.module.ts
-    {domain}.controller.ts       # 本域对外 HTTP（含管理面读接口）；可有多个 controller
-    {domain}.service.ts
+  app.module.ts                  # 只组装：根配置、基础设施、各业务域 module
+  project/                       # 业务域
+    project.module.ts
+    project.controller.ts        # 本域对外 HTTP（含管理面读）；可有多个 controller
+    project.service.ts
     dto/
     *.entity.ts                  # 仅本域表
-    adapters/                    # 可选：本域专用外部适配（CLI、SDK、网关客户端）
-      {adapter}/
-        {adapter}.module.ts      # 通常只被本域 module import，不在 AppModule 平铺
-  common/                        # 跨域横切：守卫、过滤器、管道、无业务语义工具
-  config/                        # 配置与校验
-  migrations/                    # 数据迁移脚本（路径名跟随仓库；须在项目内）
+  event/
+    event.module.ts
+    event.controller.ts
+    ingress.controller.ts        # 可选：入站文件名；模块仍是 event，不是独立 ingress 域
+    event.service.ts
+    dto/
+    *.entity.ts
+  analysis/
+    analysis.module.ts
+    analysis.controller.ts
+    analysis.service.ts
+    dto/
+    *.entity.ts
+    adapters/                    # 仅本域使用的外部适配
+      opencode/
+        opencode.module.ts       # 通常只被 analysis.module import
+  notification/
+  audit/
+  common/                        # 跨域横切 + 多域共用适配（无业务规则）
+    guards/
+    filters/
+    pipes/
+    adapters/                    # 多域共用的客户端 / SDK（如 git）
+      git/
+        git.module.ts            # 由各使用域 module import；不在 AppModule 与业务域平铺
+  config/
+  migrations/                    # 须在项目内；路径名可跟随仓库
 ```
+
+仓库已有等价布局（如 `shared/` 代替 `common/`）时跟随仓库，不平行再造一套；**原则不变**：顶层是业务域，适配器挂域下或进共享适配区。
 
 ### Nest 落位规则
 
@@ -62,23 +87,23 @@ src/
 | 管理面「查某资源列表/详情」 | **该资源所属域**的 controller（禁止单独 `query` module） |
 | Webhook / 入站适配 | **接收该业务事实的域**（如错误入站 → `event`），可 `ingress.controller.ts` 作文件名，但模块仍是业务域 |
 | 多步编排（收事件 → 分析 → 通知） | 主责用例所在域（如 `analysis` 内 pipeline）；不要顶层空壳 `pipeline` 域 |
-| OpenCode / Git / 第三方 LLM SDK | 单域：使用方域下 `adapters/`（如 `analysis/opencode`）；多域共用：抽到 `common/adapters/`（或仓库约定的 shared/infra），由各域 module import；**不要**与业务域在 `AppModule` 平级并列成「技术域」。细则见 `code-architecture`「多域共用适配器」 |
+| OpenCode / Git / 第三方 LLM SDK | 单域：`{domain}/adapters/{adapter}/`；多域共用：`common/adapters/{adapter}/`（或仓库约定的 shared/infra），由各域 module import。概念细则见 `code-architecture`「多域共用适配器」 |
 | 审计、鉴权工具 | `audit` 域或 `common/`（无业务规则的工具才进 common） |
 
-### 禁止的顶层 module 名（典型坏味道）
+### 禁止的顶层 module / 目录名（典型坏味道）
 
 - `query` / `read` / `bff` — 技术读门面  
 - `ingress` / `egress`（单独成域时）— 传输角色；应并入业务域  
 - `pipeline` / `orchestrator`（无自有模型、只 forward）— 编排壳  
 - `opencode` / `git` / `llm`（与业务域平级）— 适配器误升格  
 
-发现上述目录时：合并回业务域或降为 `adapters/`，而不是继续加文件。
+发现上述目录时：合并回业务域或降为 `{domain}/adapters/` / `common/adapters/`，而不是继续加文件。
 
 ### 其他约定
 
 - 一个 feature module 只 `exports` 外域需要的 provider；默认不导出。
 - 跨域复用放 `common/` 或独立 shared module；禁止把业务规则塞进 `common/`。
-- `AppModule` 只组装：根配置、基础设施、**业务域** feature module；不写业务逻辑；不把适配器 module 与业务域平铺一长串（单域适配器由所属域 module import；多域共享适配器放 `common`/约定 shared，由各使用域 import，仍不升为顶层业务 feature）。
+- `AppModule` 只组装：根配置、基础设施、**业务域** feature module；不写业务逻辑；不把适配器 module 与业务域平铺一长串（单域适配器由所属域 module import；多域共享适配器放 `common/adapters/`，由各使用域 import，仍不升为顶层业务 feature）。
 - 禁止循环依赖：优先下沉共享数据访问、事件或拆模块；`forwardRef` 仅权宜。不要用新建 `query` 模块来「躲开」环。
 
 ## 2. 数据迁移

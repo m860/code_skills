@@ -5,10 +5,10 @@ description: >-
   code-architecture first for shared architecture/reuse rules; this skill only
   adds React stack conventions. Pins PNPM, MUI, dayjs, axios, and TanStack
   Query (@tanstack/react-query). Pins page E2E to Playwright MCP. Covers
-  components, hooks, props typing, effects, styling, a11y, performance,
-  testing, and security basics. Use when writing or reviewing React code, or
-  when the user asks for React standards, React 规范, or frontend React coding
-  conventions.
+  business-domain directory layout, components, hooks, props typing, effects,
+  styling, a11y, performance, testing, and security basics. Use when writing
+  or reviewing React code, or when the user asks for React standards, React
+  规范, or frontend React coding conventions.
 ---
 
 # React 前端编码规范
@@ -32,12 +32,44 @@ description: >-
 - 页面 E2E：**Playwright MCP**。通过 Playwright MCP 驱动浏览器跑页面流程；不新引入 Cypress、Puppeteer、裸 Playwright 脚本套件等竞争 E2E 栈作为默认
 - 路由、客户端全局 UI 状态、单元测试运行器等未钉死项：**跟随仓库已有约定**；没有约定先问，不擅自引入第二套
 
-## 1. 组件结构与文件命名
+## 1. 目录结构与文件命名（业务域）
+
+Domain 判据见 `../code-architecture/SKILL.md` §1。React 侧落实为：**按业务功能域组织目录**，域名尽量与后端业务语言对齐；不按「所有 components / 所有 hooks」堆平，也不按纯技术角色（如单独 `query/`）切顶层。
+
+### 目录结构（明确）
+
+```
+src/
+  project/                       # 业务域（与后端域名对齐更佳）
+    pages/ 或 routes/            # 本域页面 / 路由页（命名跟随仓库）
+    components/                  # 仅本域使用的 UI
+    hooks/                       # 仅本域 hooks（含本域 Query 封装）
+    api/ 或 services/            # 本域 axios 调用与类型（跟随仓库命名）
+  event/
+    pages/
+    components/
+    hooks/
+    api/
+  analysis/
+    ...
+  shared/                        # 跨域共享：无业务规则的 UI、hooks、工具
+    components/
+    hooks/
+    utils/
+  app/ 或 routes/                # 应用壳、路由表、布局（跟随仓库：Vite / Next 等）
+  theme/ 或 styles/              # MUI theme 等（跟随仓库）
+```
+
+- 本域页面、组件、hooks、接口封装放在对应 `{domain}/` 下，不散落到全局大桶。
+- 跨域可复用的纯展示或无业务语义工具放 `shared/`（仓库若用 `ui/`、`common/` 等名则跟随，不平行再造）。
+- 禁止顶层技术门面目录冒充业务域：如单独的 `query/`、`hooks/`（全局无限堆）、与业务无关的 `api/` 大锅饭（可有薄的 axios 实例封装，业务 API 仍按域分）。
+- 仓库已有等价按域布局时跟随仓库；新建功能按上表落位，不引入第二套顶层切法。
+
+### 组件与文件命名
 
 - 优先函数组件；不要新写 class 组件（除非维护存量 class）。
 - 文件命名跟随仓库；无约定时：组件用 PascalCase 文件名（如 `UserCard.tsx`），hooks / 工具用 camelCase（如 `useUserMenu.ts`、`formatDate.ts`）。
 - 一文件一主组件（或一个紧密相关的小组件簇）；默认导出 / 具名导出跟随仓库，新增代码保持一致。
-- 按**业务功能域**组织目录（与后端业务语言对齐更佳），不按「所有 components / 所有 hooks」无限堆平；也不按纯技术角色（如单独 `query/` 页面桶）切目录。共享 UI 放仓库既有的 shared / ui 位置。
 - 组件文件保持可读：渲染为主；复杂派生、请求、副作用抽到 hooks 或邻近模块。
 - 展示与数据编排可拆：容器 / 页面负责取数与状态，展示组件尽量纯 props 驱动（若仓库已有此分层则跟随）。
 
@@ -139,7 +171,7 @@ description: >-
 ## 完成时自检
 
 1. 是否先遵循 `code-architecture`，且本改动无多余复制  
-2. 组件 / 文件命名与目录是否符合仓库与本规范  
+2. 是否按业务域目录落位（对照 §1）；组件 / 文件命名是否符合仓库与本规范  
 3. Hooks 用法与状态放置是否合理；远端数据是否走 TanStack Query + axios  
 4. Props 与关键类型是否严格；有无 `any` / 危险 HTML  
 5. UI 是否用 MUI、日期是否用 dayjs、包管理是否只用 pnpm  
