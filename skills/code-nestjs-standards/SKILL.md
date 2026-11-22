@@ -62,7 +62,7 @@ src/
 | 管理面「查某资源列表/详情」 | **该资源所属域**的 controller（禁止单独 `query` module） |
 | Webhook / 入站适配 | **接收该业务事实的域**（如错误入站 → `event`），可 `ingress.controller.ts` 作文件名，但模块仍是业务域 |
 | 多步编排（收事件 → 分析 → 通知） | 主责用例所在域（如 `analysis` 内 pipeline）；不要顶层空壳 `pipeline` 域 |
-| OpenCode / Git / 第三方 LLM SDK | 使用方域下 `adapters/`（如 `analysis/opencode`），**不要**与业务域在 `AppModule` 平级并列成「技术域」 |
+| OpenCode / Git / 第三方 LLM SDK | 单域：使用方域下 `adapters/`（如 `analysis/opencode`）；多域共用：抽到 `common/adapters/`（或仓库约定的 shared/infra），由各域 module import；**不要**与业务域在 `AppModule` 平级并列成「技术域」。细则见 `code-architecture`「多域共用适配器」 |
 | 审计、鉴权工具 | `audit` 域或 `common/`（无业务规则的工具才进 common） |
 
 ### 禁止的顶层 module 名（典型坏味道）
@@ -78,7 +78,7 @@ src/
 
 - 一个 feature module 只 `exports` 外域需要的 provider；默认不导出。
 - 跨域复用放 `common/` 或独立 shared module；禁止把业务规则塞进 `common/`。
-- `AppModule` 只组装：根配置、基础设施、**业务域** feature module；不写业务逻辑；不把适配器 module 与业务域平铺一长串（适配器由所属域 module import）。
+- `AppModule` 只组装：根配置、基础设施、**业务域** feature module；不写业务逻辑；不把适配器 module 与业务域平铺一长串（单域适配器由所属域 module import；多域共享适配器放 `common`/约定 shared，由各使用域 import，仍不升为顶层业务 feature）。
 - 禁止循环依赖：优先下沉共享数据访问、事件或拆模块；`forwardRef` 仅权宜。不要用新建 `query` 模块来「躲开」环。
 
 ## 2. 数据迁移
@@ -213,7 +213,7 @@ src/
 - 改代码前先读邻近模块的现有写法，保持一致。
 - 安装与脚本一律用 **pnpm**（如 `pnpm install`、`pnpm add`、`pnpm run …`）；只维护 `pnpm-lock.yaml`。
 - 新功能落在**对应业务域** feature module；边界清晰：controller 薄、service 厚、DTO 校验入参；对外路由带 `api` 前缀与版本。
-- 新外部依赖客户端放使用方域的 `adapters/`，不新建顶层技术域。
+- 新外部依赖客户端：单域放使用方域 `adapters/`；多域共用抽到 `common/adapters/`（或仓库约定），不新建顶层技术域。
 - 表结构变更同步提交 `{title}-{timestamp}` 迁移（含 `up`/`down`），并由应用启动执行。
 - 补齐类型、校验、错误映射；**核心流程/逻辑补单元测试**；配置走 Config 模块。
 - 因外部系统跳过单测时写明原因与依赖；不确定的域边界、响应包装、鉴权方案：**先问**，不臆造全局约定。
