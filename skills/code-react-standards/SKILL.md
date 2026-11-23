@@ -131,7 +131,8 @@ src/
 
 - 单元测试的目录、命名与命令跟随仓库；没有约定先问。
 - **核心组件必须写单元测试**：可复用/承载关键交互或展示规则的组件（含关键自定义 hooks），优先测用户可见行为与边界，少测实现细节。
-- **页面级流程 / 页面逻辑必须用 Playwright MCP 做 E2E**：路由页、多步用户路径、页面编排与关键成功/失败路径。以用例文档为步骤与期望真源，经 Playwright MCP 打开应用、操作与断言；不另起 Cypress / Puppeteer / 默认裸 Playwright 测试套件。细则（数据、第三方）与 `code-spec-design`「测试约束」一致，此处不重复。
+- **页面级流程 / 页面逻辑必须用 Playwright MCP 做 E2E**：路由页、多步用户路径、页面编排与关键成功/失败路径。以用例文档为步骤与期望真源，经 Playwright MCP 打开应用、操作与断言；不另起 Cypress / Puppeteer / 默认裸 Playwright 测试套件。细则（登录、数据、第三方）与 `code-spec-design`「测试约束」一致，此处不重复。
+- **E2E 登录**：系统需要登录时，打开页面等待用户进行登录操作；禁止 mock 和注入的方式实现。
 - **E2E 数据**：默认 mock；用户提供了部分数据则该部分用用户数据，其余仍 mock。
 - **E2E 第三方**：用户未明确测法时默认跳过，并告知用户未测的流程/功能及原因（依赖哪个第三方、未约定测法）；用户已明确测法的按约定测。
 - 单测：能用 mock / MSW / 测试替身隔离的依赖仍应写测；仅不可替身的真实第三方且无法隔离时才可跳过，并标明原因与依赖。
@@ -155,7 +156,7 @@ src/
 - 安装与脚本一律用 **pnpm**；只维护 `pnpm-lock.yaml`。
 - UI 用 **MUI**；日期用 **dayjs**；HTTP 用 **axios**；远端读写用 **TanStack Query**（`useQuery` / `useMutation`）。
 - 组件职责清晰：展示、本地状态、服务端状态边界分明；Props 与关键状态有明确类型。
-- 补齐无障碍；**核心组件补单元测试，页面逻辑用 Playwright MCP 补 E2E**（默认 mock 数据；第三方未约定测法时跳过并告知用户）。
+- 补齐无障碍；**核心组件补单元测试，页面逻辑用 Playwright MCP 补 E2E**（需登录则等用户实登；默认 mock 数据；第三方未约定测法时跳过并告知用户）。
 - 不确定路由、客户端全局状态、RSC 边界等未钉死项时：**先问**。
 
 ### 不应做
@@ -164,7 +165,7 @@ src/
 - 不引入竞争栈：不用 Ant Design/Chakra 等替代 MUI；不用 moment/date-fns 替代 dayjs（新代码）；不用自研 fetch 层或 ky 等替代 axios 作为默认；不用 SWR/RTK Query 等替代 TanStack Query；不用 Cypress / Puppeteer / 裸 Playwright 套件替代 Playwright MCP 做页面 E2E。
 - 不新写 class 组件（除非改存量）；不在条件里调用 Hooks。
 - 不默认堆 `useMemo` / `useCallback` / `memo`；不用全局 store 手写远端列表缓存来绕过 Query。
-- 不对可 mock 隔离的核心组件/页面流程省略测试；E2E 跳过第三方时不沉默——必须向用户说明未测项与原因。
+- 不对可 mock 隔离的核心组件/页面流程省略测试；E2E 不以 mock/注入冒充登录；跳过第三方时不沉默——必须向用户说明未测项与原因。
 - 不滥用 `dangerouslySetInnerHTML`；不把密钥塞进前端。
 - 不自动提交、不擅自发版；不复制粘贴大段重复 JSX/逻辑代替复用。
 
@@ -175,5 +176,5 @@ src/
 3. Hooks 用法与状态放置是否合理；远端数据是否走 TanStack Query + axios  
 4. Props 与关键类型是否严格；有无 `any` / 危险 HTML  
 5. UI 是否用 MUI、日期是否用 dayjs、包管理是否只用 pnpm  
-6. 核心组件是否有单测、页面逻辑是否经 Playwright MCP 做 E2E（默认 mock；用户数据已覆盖处用用户数据）；第三方未约定测法而跳过时，是否已告知用户未测流程/功能及原因  
+6. 核心组件是否有单测、页面逻辑是否经 Playwright MCP 做 E2E（需登录则实登、禁止 mock/注入；默认 mock 数据；用户数据已覆盖处用用户数据）；第三方未约定测法而跳过时，是否已告知用户未测流程/功能及原因  
 7. 是否无默认记忆化噪音；列表 `key` 是否稳定  
