@@ -4,13 +4,13 @@ description: >-
   Shared handling when outbound network access fails: one-shot
   http_proxy/https_proxy retries on 127.0.0.1:7890 then candidate 7897,
   without changing persistent git/npm/proxy config. Read from code-git,
-  code-skills, or any skill that hits the network. Use on network errors,
+  code-skill-manage, or any skill that hits the network. Use on network errors,
   proxy retry, 代理, or 7890/7897.
 ---
 
 # 网络失败处理
 
-本技能是通用层。凡访问远程（git、`npx skills`、下载、API 等）因**网络**失败时，按下文处理。专用技能（如 `code-git`、`code-skills`）先读本文件，只写自己的流程，不重复代理细则。
+本技能是通用层。凡访问远程（git、`npx skills`、下载、API 等）因**网络**失败时，按下文处理。专用技能（如 `code-git`、`code-skill-manage`）先读本文件，只写自己的流程，不重复代理细则。
 
 不规定开发语言、框架、工程目录或具体业务命令。
 

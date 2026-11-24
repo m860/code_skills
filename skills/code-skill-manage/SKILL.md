@@ -1,11 +1,12 @@
 ---
-name: code-skills
+name: code-skill-manage
 description: >-
   Project-level agent skill lifecycle via the npm skills CLI (npx skills):
   add, list, find, check, update, remove. Prefer project scope, never hand-copy
   into agent skill dirs or edit skills-lock.json by hand. For network failures,
   read code-network first. Use when installing, updating, removing, or listing
-  skills, or when the user asks for 技能管理 / npx skills / skills.sh.
+  skills, or when the user asks for code-skill-manage, 技能管理 / npx skills /
+  skills.sh.
 ---
 
 # 项目技能管理
