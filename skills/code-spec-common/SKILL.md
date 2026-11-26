@@ -3,7 +3,8 @@ name: code-spec-common
 description: >-
   Shared upper layer for requirement directories
   docs/features/{timestamp}-{title}/, status in docs/features/STATUS.md, SemVer,
-  and docs/CHANGELOG.md. Read this before code-spec-design or code-deploy. Does not
+  and docs/CHANGELOG.md. Read this before code-spec-design or code-github-deploy.
+  Does not
   design a requirement or ship a release.
 ---
 
@@ -14,7 +15,8 @@ description: >-
 专用技能开始前先读本文件，只写自己的流程，不重复下文：
 
 - `code-spec-design`：方案设计；用户明确要求后才实现
-- `code-deploy`：发版或重新部署
+- `code-github-deploy`：GitHub 托管下的发版或重新部署（Part A：tag + `gh` 等待 CI；文档在 CI 成功后写）
+- `code-github-ci`：GitHub Actions / self-hosted 与 Node 部署流水线（Part B）
 
 在含 `docs/` 的产品仓库中使用。下文路径是文档角色，不代表某种开发语言、框架或命令。
 
@@ -28,10 +30,10 @@ description: >-
   `方案设计中`（新建默认）→ `方案设计完成` → `已实现` → `待部署` → `已部署`
 
 - **源码版本号**：仓库源码中的版本字段。设计、实现、发版、重新部署都不改。发布版本只出现在发布产物和 CHANGELOG。
-- **发版**：圈定状态为 `待部署` 的需求，给出一个新 SemVer，发布上线后写 CHANGELOG，并把这些行改为 `已部署`。
-- **重新部署**：用当前顶版再发布上线。不升版，不改需求状态，不改已有变更条目。
+- **发版**：圈定状态为 `待部署` 的需求，给出一个新 SemVer；**待发布流水线（含健康检查）成功之后**，再写 CHANGELOG，并把这些行改为 `已部署`。成功前不改 STATUS / CHANGELOG。
+- **重新部署**：用当前顶版再发布上线。不升版，不改需求状态，不改已有变更条目；流水线成功后可更新 `LAST_SHIPPED` 并追加 `redeploy` 行。
 
-谁推进哪一步状态，由专用技能决定。
+谁推进哪一步状态、如何触发流水线，由专用技能决定（GitHub 见 `code-github-deploy` + `code-github-ci`）。
 
 ## 需求目录
 

@@ -23,7 +23,7 @@ description: >-
 | 项 | 要求 |
 | --- | --- |
 | 版本写入 | **仅**写入发布产物内的清单（如产物 `package.json` 的 `version`）。**禁止**改仓库源码里的版本字段。 |
-| 版本来源 | 优先：`VERSION` → CLI `--version`/`-v` → `docs/CHANGELOG.md` 最上 `## X.Y.Z`。皆无则失败说明，不臆造。 |
+| 版本来源 | 优先：`VERSION` → CLI `--version`/`-v` → 调用方传入（如 CI 从 `vX.Y.Z` tag 解析）→ `docs/CHANGELOG.md` 最上 `## X.Y.Z`。皆无则失败说明，不臆造。 |
 | 产物目录 | 组装可部署的扁平目录（下文称 `release/`）：运行所需文件、`package.json`、锁文件、可选 `.env.example`、**PM2** `ecosystem.config.cjs`（或仓库等价名）。 |
 | **不要**打进包 | `node_modules`、真实 `.env` / 密钥、与运行无关的源码或测试产物（除非仓库明确要求）。 |
 | 压缩包形态 | `.tar` / `.tar.gz` / `.tgz`。归档成员为**扁平根**（`tar -czf out.tgz -C release .`），**不要**再包一层 `release/` 目录名。 |

@@ -17,7 +17,7 @@ description: >-
 
 先读通用 `../code-architecture/SKILL.md`。复用、边界、分层、抽取时机等架构共性以它为准；本技能只写 React 栈约定，不重复那些内容。
 
-共性流程（需求目录、状态、发版）不在本技能内；有则先读对应 `code-spec-*` / `code-deploy`。
+共性流程（需求目录、状态、发版）不在本技能内；有则先读对应 `code-spec-*` / `code-github-deploy`。
 
 ## 技术栈假设
 
