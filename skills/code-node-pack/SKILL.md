@@ -12,7 +12,9 @@ description: >-
 
 约定业务仓如何写 **Node 服务端** 的 pack / release 脚本与产物，使产物适合用 **PM2** 启动（含 `ecosystem` 接线）。
 
-本技能**只**管打包脚本与产物约束。不写目标机目录/发布步骤，不改需求状态、不写 CHANGELOG，除非用户同时要求发版。
+本技能**只**管 **PM2 路径**的打包脚本与产物约束。不写目标机目录/发布步骤，不改需求状态、不写 CHANGELOG，除非用户同时要求发版。
+
+Docker / Compose 镜像产物见 `../code-docker-pack/SKILL.md`。CI 中选 PM2 还是 Docker 见 `../code-github-ci/SKILL.md`。
 
 不规定具体构建命令或仓库目录名；跟随目标仓库已有约定。没有约定先问。
 

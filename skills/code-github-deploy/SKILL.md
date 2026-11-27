@@ -13,7 +13,7 @@ description: >-
 
 本技能是 `code-spec-common` 的专用层，**仅适用于 GitHub 托管**仓库。只做发版或重新部署的 **Agent 侧编排**：圈定 → 打 tag → 用 `gh` 等待 CI → **成功后**才改 CHANGELOG / STATUS 并提交推送。
 
-机器上的打包、切流、启动、健康检查、回滚见 `../code-github-ci/SKILL.md`（Part B）。本文件不重复 Part B 步骤。
+机器上的发布（PM2 或 Docker/Compose，由用户/仓库选定）见 `../code-github-ci/SKILL.md`（Part B）。本文件不重复 Part B 步骤，也不代替用户选择托管方式。
 
 开始前先读 `../code-spec-common/SKILL.md`。术语、目录、状态、CHANGELOG 以它为准。网络失败先读 `../code-network/SKILL.md`。提交规范读 `../code-git/SKILL.md`（本技能的部署口令视为已明确要求提交与推送发版相关变更）。
 
@@ -35,9 +35,10 @@ description: >-
 ## 与 Part B 的衔接
 
 ```
-Part A（本技能）          Part B（code-github-ci）
-圈定/定版 → push tag  →  self-hosted：打包→安装→切流→启动→健康检查
-         ← gh run watch ← 成功 / 失败（失败时 runner 侧回滚）
+Part A（本技能）          Part B（code-github-ci · PM2 或 Docker）
+圈定/定版 → push tag  →  PM2：self-hosted 打包→切流→PM2
+                         Docker：按约定构建 push（首次问 GitHub-hosted 或开发机）→ self-hosted pull+Compose
+         ← gh run watch ← 成功 / 失败（失败时目标侧回滚）
 成功 → 写文档并 commit/push
 失败 → 删 tag，不改文档
 ```

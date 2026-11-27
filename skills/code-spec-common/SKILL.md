@@ -16,7 +16,8 @@ description: >-
 
 - `code-spec-design`：方案设计；用户明确要求后才实现
 - `code-github-deploy`：GitHub 托管下的发版或重新部署（Part A：tag + `gh` 等待 CI；文档在 CI 成功后写）
-- `code-github-ci`：GitHub Actions / self-hosted 与 Node 部署流水线（Part B）
+- `code-github-ci`：GitHub Actions / Part B（PM2 或 Docker Compose；托管方式由用户选择）
+- `code-docker-pack`：Docker 镜像与 Compose 产物约束（Docker 部署路径）
 
 在含 `docs/` 的产品仓库中使用。下文路径是文档角色，不代表某种开发语言、框架或命令。
 
