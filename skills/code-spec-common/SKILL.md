@@ -15,9 +15,10 @@ description: >-
 专用技能开始前先读本文件，只写自己的流程，不重复下文：
 
 - `code-spec-design`：方案设计；用户明确要求后才实现
-- `code-github-deploy`：GitHub 托管下的发版或重新部署（Part A：tag + `gh` 等待 CI；文档在 CI 成功后写）
-- `code-github-ci`：GitHub Actions / Part B（PM2 或 Docker Compose；托管方式由用户选择）
-- `code-docker-pack`：Docker 镜像与 Compose 产物约束（Docker 部署路径）
+- `code-github-deploy`：GitHub 托管下的发版或重新部署（Part A：annotated tag 含版本日志并 push；不强制 watch；不写文档）
+- `code-github-ci`：GitHub Actions / Part B（PM2 或 Docker；成功后 `ship-docs` 回写 STATUS/CHANGELOG；失败删 tag）
+- `code-docker-pack`：Docker 镜像与 Compose 产物约束
+- `code-docker-deploy`：Docker Compose 目标机部署 / 回滚 / 保留版本（通用）
 
 在含 `docs/` 的产品仓库中使用。下文路径是文档角色，不代表某种开发语言、框架或命令。
 
@@ -33,6 +34,7 @@ description: >-
 - **源码版本号**：仓库源码中的版本字段。设计、实现、发版、重新部署都不改。发布版本只出现在发布产物和 CHANGELOG。
 - **发版**：圈定状态为 `待部署` 的需求，给出一个新 SemVer；**待发布流水线（含健康检查）成功之后**，再写 CHANGELOG，并把这些行改为 `已部署`。成功前不改 STATUS / CHANGELOG。
 - **重新部署**：用当前顶版再发布上线。不升版，不改需求状态，不改已有变更条目；流水线成功后可更新 `LAST_SHIPPED` 并追加 `redeploy` 行。
+- **GitHub 路径**：Part A 只负责 annotated `v{SemVer}`（消息体带版本日志与需求目录名）并 push；**文档回写与失败删 tag 由 Part B CI 完成**，Agent 不因「要写 CHANGELOG」而监视 CI。细则见 `code-github-deploy` / `code-github-ci`。
 
 谁推进哪一步状态、如何触发流水线，由专用技能决定（GitHub 见 `code-github-deploy` + `code-github-ci`）。
 
@@ -71,7 +73,7 @@ description: >-
 | --- | --- |
 | `docs/features/{timestamp}-{title}/` | 一个需求的方案。状态不在目录名里 |
 | `docs/features/STATUS.md` | 状态的唯一登记处 |
-| `docs/CHANGELOG.md` | 仅发版、重新部署时写 |
+| `docs/CHANGELOG.md` | 仅发版、重新部署且**流水线成功后**写（GitHub 上由 CI `ship-docs` 写，非 Part A） |
 | `docs/DB.md` | 数据模型全量。有结构或字段变化才改 |
 | `docs/ARCHITECTURE.md` | 架构级事实。有变化才改对应陈述 |
 | `docs/PLANNED-FEATURES.md` | 明确留到以后的能力。一条一个能力 |

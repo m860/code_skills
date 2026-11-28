@@ -2,12 +2,12 @@
 name: code-github-ci
 description: >-
   Prefer GitHub Actions + self-hosted runners when adding or editing CI on
-  GitHub-hosted repos. Part B supports PM2 or Docker (user chooses hosting).
-  Docker: ask build location on first project setup (GitHub-hosted vs developer
-  machine), then follow that; target pulls + Compose; artifacts via
-  code-docker-pack. Shared gates: health check, keep 3 versions, rollback.
-  Agent-side release is code-github-deploy. Use when adding or editing
-  CI/workflows, PM2 or Docker deploy, self-hosted runner, or GitHub CI 规范.
+  GitHub-hosted repos. Part B supports PM2 or Docker (user chooses hosting),
+  plus post-deploy ship-docs and delete-failed-tag. Docker runtime rules live
+  in code-docker-deploy; packaging in code-docker-pack; this skill adds Actions
+  wiring and first-time build-location choice. Agent-side release is
+  code-github-deploy. Use when adding or editing CI/workflows, PM2 or Docker
+  deploy, self-hosted runner, or GitHub CI 规范.
 ---
 
 # GitHub CI 约束
@@ -18,6 +18,7 @@ Agent 侧发版编排见 `../code-github-deploy/SKILL.md`（Part A）。
 
 - PM2 产物：`../code-node-pack/SKILL.md`
 - Docker 产物：`../code-docker-pack/SKILL.md`
+- Docker 目标机部署：`../code-docker-deploy/SKILL.md`
 
 - **新增 CI**：选型与写法按本技能。
 - **修改 CI**：若目标已是 Actions + self-hosted（或本次改成这种方式），须按本技能检查并保持合法；Docker **构建** job 按下文允许使用 GitHub-hosted。
@@ -49,9 +50,9 @@ Agent 侧发版编排见 `../code-github-deploy/SKILL.md`（Part A）。
 | 两种都有或都没有、无法判断 | **先问用户选哪一种**，不擅自默认 |
 
 - 选 **PM2** → 第 6 节 + `code-node-pack`  
-- 选 **Docker** → 第 7 节 + `code-docker-pack`  
+- 选 **Docker** → 第 7 节 + `code-docker-pack` + `code-docker-deploy`  
 
-Part A（打 tag / `gh watch` / 成功后写文档）两种托管共用，不因托管方式分叉。
+Part A（annotated tag + push，不强制 watch）两种托管共用；**文档回写与失败删 tag** 也共用（第 10 节），不因托管方式分叉。
 
 ## 4. Workflow 通用写法
 
@@ -122,7 +123,7 @@ jobs:
 
 ## 7. Part B · Docker（Compose）
 
-由 **tag 推送**触发。目标机 **pull** 镜像后用 **Compose** 启动。构建与部署拆开。
+由 **tag 推送**触发。目标机行为与回滚/保留版本以 **`code-docker-deploy`** 为准；镜像/Compose 文件以 **`code-docker-pack`** 为准。本节只补 **GitHub Actions 接线**。
 
 ### 7.1 构建位置（第一次询问）
 
@@ -142,27 +143,24 @@ jobs:
 
 建议把选定结果写进项目 `AGENTS.md`（或等价 Agent 规则）/ 部署文档一句，便于下次跟随。
 
-目标机（self-hosted 部署 job）**只 pull + Compose**，不把「目标机现场 docker build」当作默认主路径。
-
 Registry、镜像名、凭证：跟随仓库；没有约定先问。密钥用 GitHub Secrets / 宿主已有登录，不写进 YAML 明文。
 
-### 7.2 步骤顺序
+### 7.2 Actions 步骤顺序
 
 ```
-【build · 按 7.1 已选位置】
+【build · 按 7.1 已选位置 · 可 GitHub-hosted】
 1. checkout（该 tag）— 若在 Actions 构建
 2. 登录 registry
-3. 按 code-docker-pack 构建镜像，tag={image}:{SemVer}，push
+3. 按 code-docker-pack 构建并 push {image}:{SemVer}
 
-【deploy job · self-hosted · needs: build（若 build 也在同一 workflow）】
-4. 登录 registry（若需要）
-5. 在部署目录更新/渲染 compose，使服务 image 指向 {image}:{SemVer}
-6. docker compose pull && docker compose up -d（或仓库等价）
-7. 健康检查（第 8 节；无 URL 时观察容器状态/日志）
-8. 成功：最多保留 3 个 SemVer 镜像引用/标签策略（见 7.4）；失败：回滚（第 9 节）
+【deploy job · self-hosted · needs: build（若 build 在同一 workflow）】
+4. 按 code-docker-deploy：登录 → 钉 SemVer → compose pull && up -d
+5. 健康检查（第 8 节 / code-docker-deploy）
+6. 成功：保留最多 3 版；失败：回滚（第 9 节 / code-docker-deploy）
+7. 其后：第 10 节 ship-docs / 失败时 delete-failed-tag（均在 GitHub-hosted）
 ```
 
-若构建在开发机完成且镜像已 push：Actions 可仅跑 **deploy** job（仍由 tag 或用户约定触发）；Part A 仍 `gh run watch` 部署 run。若无部署 workflow、只在开发机 up：须向用户说明未走 Part B，不假装 CI 已发布。
+若构建在开发机完成且镜像已 push：Actions 可仅跑 **deploy**（及第 10 节）；仍由 tag 触发。若无部署 workflow、只在开发机 up：须向用户说明未走 Part B，不假装 CI 已发布。
 
 ### 7.3 示意
 
@@ -180,16 +178,11 @@ jobs:
       - run: <build & push {image}:{SemVer}>
   deploy:
     needs: build             # 仅当 build 在同一 workflow；开发机构建时可去掉 needs
-    runs-on: [self-hosted]   # 目标侧：pull + compose
+    runs-on: [self-hosted]   # 目标侧：见 code-docker-deploy
     steps:
       - run: <compose 指向 :{SemVer}；compose pull && up -d>
       - run: <健康检查或容器观察>
 ```
-
-### 7.4 保留版本（Docker）
-
-- 默认与 PM2 对齐：**最多保留 3 个**已成功发布的 SemVer（镜像 tag 与/或部署目录中的 compose 钉扎记录）。成功后清理更旧的镜像 tag/本地悬空镜像，方式跟随仓库；没有约定先问，避免误删共享基础镜像。  
-- 回滚目标为**上一成功 SemVer** 的 image + compose，不依赖 `latest`。
 
 ## 8. 健康检查（共用）
 
@@ -209,11 +202,80 @@ jobs:
 
 回滚成功后：建议清理本次失败产物（半成品目录或未采用的新 tag 引用），避免占满 3 槽。
 
-## 10. 与 Part A 的分工
+## 10. 文档回写与失败删 tag（Part B · 共用）
 
-- Part B **不**改 `docs/CHANGELOG.md` / `STATUS.md`。  
-- Part A 用 `gh run watch` 看**整次** workflow（含 Docker 的 build+deploy）；失败时由 Part A 删 tag。  
-- job summary 建议写出：托管方式、version、是否回滚、当前运行指向。
+健康检查成功后的 **STATUS / CHANGELOG** 回写、以及部署失败时的 **远程 tag 清理**，由 Actions 完成；**不**依赖 Part A `gh run watch`。目标机 self-hosted job **不做** git ref 写操作（不在部署机上 push 文档或删 tag）。
+
+Annotation 格式与 Part A 约定见 `code-github-deploy`（`kind: release` / `kind: redeploy`；release 行含 `| {需求目录名}`）。
+
+### 10.1 Secret
+
+- 仓库 Secret（建议名 **`RELEASE_GIT_TOKEN`**，仓库另有约定则跟随）：PAT 或等价凭据，对该仓 **Contents: Read and write**（含删 tag 所需写 refs）。  
+- `GITHUB_TOKEN` 默认权限往往不足以向默认分支 push 文档或删 tag；**不要**假定默认 token 够用。  
+- 缺 Secret：`ship-docs` / `delete-failed-tag` 应明确失败或 warning，**不**回滚已健康的线上版本。
+
+### 10.2 `ship-docs`（成功路径）
+
+- 触发条件：部署 job（含健康检查）**成功**之后；推荐独立 job，`runs-on: ubuntu-latest`（GitHub-hosted），`needs: <deploy-job>`。  
+- 步骤要点：  
+  1. 用 `RELEASE_GIT_TOKEN` checkout **默认分支**（如 `main`；跟随仓库）最新提交  
+  2. force-fetch 本次 annotated tag（避免 checkout 剥掉 annotation）  
+  3. 读 `git tag -l --format='%(contents)' v{SemVer}`，按 annotation 改文档（仓库脚本，如 `scripts/ship-release-docs.*`；无则按下列规则实现，不臆造第二套 STATUS 语义）  
+  4. commit + push 回默认分支；冲突时有限次 rebase 重试  
+- **`kind: release`**：仅将 annotation 中列出且 STATUS 当前为 `待部署` 的目录改为 `已部署`；在 CHANGELOG 写入本版区段与 `- {type}: {短标题}`（**不**把目录名写入 CHANGELOG 正文）；更新 `LAST_SHIPPED`。缺目录名 / STATUS 无此行 / 状态不是 `待部署` → 该条 skip + warning，其它合法行照常。  
+- **`kind: redeploy`**：只更新 `LAST_SHIPPED`（可追加 `- redeploy: {stamp}`）；**不**改需求状态行。  
+- `kind` 无法解析：不写 STATUS/CHANGELOG；job 失败或显式 skip（跟随仓库，须可观测）。  
+- **文档回写失败不触发目标机回滚**（线上已健康的 SemVer 保持）；summary 标明 deploy ok / docs failed。  
+- 回写 push 的是文档提交，**不得**再触发一次 tag 部署（deploy 仅 `push: tags: v*`）。
+
+### 10.3 `delete-failed-tag`（失败路径）
+
+- 独立 job，GitHub-hosted；`needs: [build?, deploy]`（以仓库 job 名为准）；`if: always() && (build 或 deploy 失败)`。  
+- 用 `RELEASE_GIT_TOKEN` 调 GitHub API 删除本次 `refs/tags/v{SemVer}`。  
+- 缺 Secret / 404 / 非 2xx → warning，不改变目标机回滚结果。  
+- **`ship-docs` 失败不删 tag**（避免文档问题误删已成功发版标记）。
+
+### 10.4 示意（节选）
+
+```yaml
+  ship-docs:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main   # 或仓库默认分支
+          token: ${{ secrets.RELEASE_GIT_TOKEN }}
+          fetch-depth: 0
+      - run: git fetch --force --no-tags origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
+      - run: |
+          git tag -l --format='%(contents)' "${{ github.ref_name }}" \
+            | <ship-release-docs 入口> "${VERSION}"
+      - run: |
+          git add docs/CHANGELOG.md docs/features/STATUS.md
+          git diff --staged --quiet || git commit -m "docs: 记录 ${VERSION} 发版（CI）"
+          git push origin HEAD:main
+
+  delete-failed-tag:
+    needs: [build, deploy]   # job 名跟随仓库；无 build 则只 needs deploy
+    runs-on: ubuntu-latest
+    if: always() && (needs.build.result == 'failure' || needs.deploy.result == 'failure')
+    steps:
+      - run: <DELETE refs/tags/${{ github.ref_name }} via API + RELEASE_GIT_TOKEN>
+```
+
+### 10.5 与 Part A 的分工
+
+| 事项 | Part A | Part B |
+| --- | --- | --- |
+| 圈定 / 定 SemVer / annotated tag + push | 负责 | — |
+| `gh run watch` | 可选，非必须 | — |
+| 构建、部署、健康检查、回滚 | — | 负责 |
+| 写 STATUS / CHANGELOG / `LAST_SHIPPED` | **不写** | 成功后 `ship-docs` |
+| 删除失败的远程 tag | **不删** | `delete-failed-tag` |
+
+job summary 建议写出：托管方式、version、是否回滚、当前运行指向、docs 是否已 push、失败 tag 是否已删。
 
 ## 11. 不应做
 
@@ -221,13 +283,16 @@ jobs:
 - 未确认时不把**部署** job 改成 GitHub-hosted。  
 - Docker 路径不跳过「目标机 pull + Compose」；构建位置不在第一次未问清时擅自选定。  
 - 不跳过健康检查 / 回滚 / 最多 3 版。  
-- 不在 Part B 写 STATUS / CHANGELOG。  
+- 不在目标机 self-hosted 上 push 文档或删 GitHub tag。  
+- 不以短标题模糊匹配 STATUS；不在 CI 成功前由 Agent 改文档。  
 - 托管方式不明时不擅自二选一。
 
 ## 完成时自检
 
 1. 本次托管方式是否已由用户或仓库选定（并存时已问清）  
-2. PM2 是否走第 6 节 + `code-node-pack`；Docker 是否走第 7 节 + `code-docker-pack`  
-3. Docker：第一次是否已问构建位置；之后是否跟随约定；部署是否 self-hosted pull + Compose  
-4. 健康检查与回滚、最多 3 版是否满足  
-5. 是否未在 CI 中改需求文档  
+2. PM2 是否走第 6 节 + `code-node-pack`；Docker 是否走第 7 节 + `code-docker-pack` + `code-docker-deploy`  
+3. Docker：第一次是否已问构建位置；之后是否跟随约定；目标机是否符合 `code-docker-deploy`  
+4. 健康检查与回滚、最多 3 版是否满足（Docker 细则以 `code-docker-deploy` 为准）  
+5. 是否具备 `ship-docs` + `delete-failed-tag`（或仓库等价），且文档回写失败不回滚已健康版本  
+6. Secret（如 `RELEASE_GIT_TOKEN`）与 annotated tag 约定是否已文档化  
+

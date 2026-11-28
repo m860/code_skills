@@ -12,9 +12,11 @@ description: >-
 
 约定业务仓如何写 **Docker 镜像与 Compose** 相关文件，使产物适合目标机 `pull` 后用 **Compose** 启动。
 
-本技能**只**管镜像/Compose 产物与构建脚本约束。不写目标机发布步骤、不改需求状态、不写 CHANGELOG，除非用户同时要求发版。CI 中的 build/push/pull/切流、以及**构建位置（GitHub-hosted vs 开发机，项目第一次询问）**见 `../code-github-ci/SKILL.md`。
+本技能**只**管镜像/Compose 产物与构建脚本约束。不写目标机切流/回滚步骤、不改需求状态、不写 CHANGELOG，除非用户同时要求发版。
 
-PM2 / tgz 打包不在本技能范围，见 `../code-node-pack/SKILL.md`。
+- 目标机部署约束：`../code-docker-deploy/SKILL.md`
+- GitHub Actions 构建位置与 workflow：`../code-github-ci/SKILL.md`
+- PM2 / tgz 打包：`../code-node-pack/SKILL.md`
 
 不规定具体应用框架或仓库目录名；跟随目标仓库已有约定。没有约定先问。
 
@@ -50,7 +52,19 @@ PM2 / tgz 打包不在本技能范围，见 `../code-node-pack/SKILL.md`。
 | 默认编排 | **Docker Compose**（不是默认裸 `docker run`；仓库明确单容器且无 compose 时再例外，并先问）。 |
 | 镜像 | 服务 `image:` 指向将 pull 的引用；构建上下文若在 compose 里，发版仍以「已推送的版本 tag」为准，避免目标机现场 `build` 当作主路径。 |
 | 数据与配置 | 持久数据用 volume；配置与密钥不进镜像层。 |
-| 健康检查 | 可在 compose 写 `healthcheck`；发版门禁的 HTTP/`version` 判定仍以 `code-github-ci` 为准。 |
+| 健康检查 | 可在 compose 写 `healthcheck`；发版门禁判定见 `code-docker-deploy` /（GitHub 时）`code-github-ci`。 |
+
+## 层与 pull 友好（构建侧）
+
+目标机用标准 `compose pull` 按层复用；构建侧宜让「少变的大层」与「常变的应用层」分开，避免日常只改业务也重拉整棵应用树。
+
+| 项 | 要求 |
+| --- | --- |
+| 拆层 | runtime 阶段按「稳 → 变」分层 `COPY`（或等价）：大且稳的依赖目录与常变产物（如构建输出、带 SemVer 的清单）分开；含版本号的文件靠后。 |
+| 可复现 digest | 同内容应尽量得到同层 digest。若安装/打包会写入易变 mtime，在进入最终镜像层之前对将拷贝的树做**统一固定 mtime**（含需覆盖的 symlink 策略跟随工具能力）；内容变则 digest 仍应变。 |
+| 不做 | 不自研「差分包 + 目标机合并」替代标准镜像 tag；不把网络加速/私有 registry 拓扑写死进本技能。 |
+
+具体 Dockerfile 阶段名与路径跟随仓库；没有约定先问。
 
 ## 口令边界
 
@@ -58,4 +72,4 @@ PM2 / tgz 打包不在本技能范围，见 `../code-node-pack/SKILL.md`。
 
 ## 完成时输出
 
-只改 Docker 打包相关文件时：列出改动路径，并核对：镜像 tag 含 SemVer、无密钥进镜像/已提交 compose、有 Compose 默认编排、版本未写入源码 version 字段。
+只改 Docker 打包相关文件时：列出改动路径，并核对：镜像 tag 含 SemVer、无密钥进镜像/已提交 compose、有 Compose 默认编排、版本未写入源码 version 字段；若改 runtime 层，是否利于目标机按层复用（稳/变拆分，必要时固定 mtime）。
